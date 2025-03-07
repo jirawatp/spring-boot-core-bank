@@ -56,11 +56,14 @@ com.pattanayutanachot.jirawat.core.bank
 ## Local Environment Variables (`.env`)
 
 ```sh
-POSTGRES_DB=core_bank
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=password
-REDIS_HOST=localhost
-REDIS_PORT=6379
+SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/corebank
+SPRING_DATASOURCE_USERNAME=postgres
+SPRING_DATASOURCE_PASSWORD=postgres
+SPRING_REDIS_HOST=localhost
+SPRING_REDIS_PORT=6379
+SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://localhost:8081/auth/realms/corebank
+JAVA_OPTS=-Xms512m -Xmx1024m
+
 SPRING_PROFILES_ACTIVE=local
 ```
 
@@ -126,6 +129,23 @@ Response:
   "status": "UP"
 }
 ```
+
+### Testing
+Run unit tests:
+```bash
+mvn clean test
+```
+
+### CI/CD
+CI/CD configured via GitHub Actions includes automated testing and SonarQube scanning.
+
+### SonarQube Configuration
+Properties in `pom.xml`:
+```xml
+<properties>
+  <sonar.projectKey>jirawatp_spring-boot-core-bank</sonar.projectKey>
+  <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+</properties>
 
 ## Swagger API Docs
 
