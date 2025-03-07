@@ -1,105 +1,135 @@
-# Spring Boot Core Bank Application
+# Spring Boot Core Bank
 
-This project provides a secure and robust backend for core banking operations. The application uses Java, Spring Boot, PostgreSQL, Redis, Keycloak for authentication, Kong Gateway for API management, and supports JWT and API key-based security.
+![Build and Test](https://github.com/jirawatp/spring-boot-core-bank/actions/workflows/build.yml/badge.svg)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jirawatp_spring-boot-core-bank&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=jirawatp_spring-boot-core-bank)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=jirawatp_spring-boot-core-bank&metric=coverage)](https://sonarcloud.io/summary/new_code?id=jirawatp_spring-boot-core-bank)
 
-## Built With
+
+## Overview
+
+This project is a Spring Boot-based banking application providing core banking functionalities such as account management, transactions, and security integration. It includes database interactions via PostgreSQL, caching via Redis, API gateway via Kong, and supports authentication via JWT, API Key, and Keycloak.
+
+## Project Information
+
+- **Java version**: 17
+- **Spring Boot version**: 3.2.3
+- **Packaging**: JAR
+- **License**: No License
+
+## Tech Stack
+
 - Java 17
-- Spring Boot (Packaged as a JAR)
+- Spring Boot
 - PostgreSQL
-- Redis (Caching)
-- Keycloak (Identity Management)
-- Kong Gateway (API Management)
-- JWT & API Key Authentication
-- RSA Encryption for secure authentication
-- Flyway for database migration
-- Swagger for API documentation
-- Docker Compose (for local development)
-- Lombok
-- Spring Security
-- Distributed Tracing
-- Spring Boot DevTools
-- GitHub Actions CI/CD pipeline
-- SonarQube
+- Redis (caching)
+- Flyway (DB migrations)
+- JWT and API Key for authentication
+- Keycloak (Identity Provider)
+- Kong (API Gateway)
+- Swagger (OpenAPI)
+- SonarQube (Code Quality)
 
-## Getting Started
+## Project Structure
+```
+com.pattanayutanachot.jirawat.core.bank
+├── controller/
+├── model/
+├── repository/
+├── service/
+├── config/
+├── exception/
+├── validation/
+└── util/
+```
+
+## CI/CD
+
+- **Unit tests and SonarQube analysis** run on every PR.
+- **Docker Image** created and published to GitHub Container Registry upon merging to the `main` branch.
+
+## Local Development
 
 ### Prerequisites
 - Java 17
-- Docker
-- Docker Compose
-- Maven
-- IntelliJ IDEA or VS Code (recommended for local development)
+- Docker (PostgreSQL, Redis, Kong)
 
-### Running Application (Local Development via IDE)
-When running the application via an IDE like IntelliJ, the following **environment variables** need to be set. These can be configured in an `.env` file or in an `application-local.properties` file.
+## Local Environment Variables (`.env`)
 
-#### `.env` file (for IntelliJ or Docker Compose override)
-```ini
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/corebank
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
-SPRING_REDIS_HOST=localhost
-SPRING_REDIS_PORT=6379
-SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://localhost:8081/auth/realms/corebank
-JAVA_OPTS=-Xms512m -Xmx1024m
+```sh
+POSTGRES_DB=core_bank
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=password
+REDIS_HOST=localhost
+REDIS_PORT=6379
+SPRING_PROFILES_ACTIVE=local
 ```
 
-#### `application-local.properties` (for Spring Boot profile)
+## Local Application Properties (`application-local.properties`)
+
 ```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/corebank
-spring.datasource.username=postgres
-spring.datasource.password=postgres
-spring.redis.host=localhost
-spring.redis.port=6379
-spring.security.oauth2.client.provider.keycloak.issuer-uri=http://localhost:8081/auth/realms/corebank
+spring.datasource.url=jdbc:postgresql://localhost:5432/core_bank
+spring.datasource.username=${POSTGRES_USER}
+spring.datasource.password=${POSTGRES_PASSWORD}
+spring.datasource.driver-class-name=org.postgresql.Driver
+
+spring.redis.host=${REDIS_HOST}
+spring.redis.port=${REDIS_PORT}
+
+spring.flyway.enabled=false
+
+spring.application.name=spring-boot-core-bank
+spring.application.version=1.0.0
 ```
 
-### Running Supporting Services (Docker Compose)
-For local development, supporting services (PostgreSQL, Redis, Keycloak, Kong) should be started using Docker Compose:
-```bash
-docker compose up -d
+## Docker (for local development)
+
+Run PostgreSQL, Redis, and Kong locally:
+
+```sh
+docker-compose up -d
 ```
 
-### API Documentation
-Swagger UI:
-```
-http://localhost:8080/swagger-ui/index.html
-```
+## Building & Running
 
-### Kong Gateway
-- Proxy API: `http://localhost:8000`
-- Admin API: `http://localhost:8001`
+### Using Maven:
 
-### Keycloak Admin
-- URL: `http://localhost:8081`
-- Username/Password: `admin/admin`
-
-### Database Migration
-Flyway migrations run automatically on startup. Migration scripts:
-```
-src/main/resources/db/migration/
+```sh
+mvn clean install
+mvn spring-boot:run -Dspring-boot.run.profiles=local
 ```
 
-### Input Validation
-Input validation is implemented for API endpoints using Hibernate Validator.
+### IntelliJ IDEA Setup
 
-### Testing
-Run unit tests:
-```bash
-mvn clean test
+- Open `Run -> Edit Configurations`
+- Add `local` in the "Active profiles" field or VM options:
+
+```sh
+-Dspring.profiles.active=local
 ```
 
-### CI/CD
-CI/CD configured via GitHub Actions includes automated testing and SonarQube scanning.
+## Monitoring and Health Checks
 
-### SonarQube Configuration
-Properties in `pom.xml`:
-```xml
-<properties>
-  <sonar.projectKey>jirawatp_spring-boot-core-bank</sonar.projectKey>
-  <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-</properties>
+Check application health at:
+
+```sh
+GET /api/health
 ```
+
+Response:
+
+```json
+{
+  "application": "spring-boot-core-bank",
+  "version": "1.0.0",
+  "database": "UP",
+  "redis": "UP",
+  "status": "UP"
+}
+```
+
+## Swagger API Docs
+
+Visit [Swagger UI](http://localhost:8080/swagger-ui.html)
 
 ### Deployment
 On merging PRs to `main`, a Docker image is built and published to GitHub Container Registry (GHCR).
