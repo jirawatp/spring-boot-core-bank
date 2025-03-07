@@ -1,0 +1,45 @@
+_format_version: "3.0"
+_transform: true
+
+services:
+  - name: core-bank-app
+    url: http://core-bank-app:8080
+    routes:
+      - name: core-bank-api
+        paths:
+          - /api
+        strip_path: false
+
+plugins:
+  - name: rate-limiting
+    service: core-bank-app
+    config:
+      minute: 100
+      policy: local
+  - name: key-auth
+    service: core-bank-app
+    config:
+      key_names:
+        - apiKey
+  - name: request-transformer
+    service: core-bank-app
+    config:
+      add:
+        headers:
+          - "X-Forwarded-Host: core-bank-app"
+          - "X-Real-IP: $remote_addr"
+  - name: response-transformer
+    service: core-bank-app
+    config:
+      add:
+        headers:
+          - "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload"
+          - "X-Content-Type-Options: nosniff"
+          - "X-XSS-Protection: 1; mode=block"
+          - "Referrer-Policy: no-referrer"
+          - "Content-Security-Policy: default-src 'self'"
+          - "Permissions-Policy: camera=(), microphone=()"
+consumers:
+  - username: core-bank-client
+    keyauth_credentials:
+      - key: my-secure-api-key
