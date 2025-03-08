@@ -1,11 +1,8 @@
 package com.pattanayutanachot.jirawat.core.bank.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import jakarta.validation.constraints.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -36,4 +33,13 @@ public class Transaction {
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // Constructor used in tests
+    public Transaction(Long id, Account account, String type, BigDecimal amount) {
+        this.id = id;
+        this.account = account;
+        this.type = type;
+        this.amount = amount;
+        this.createdAt = LocalDateTime.now();
+    }
 }

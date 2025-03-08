@@ -2,9 +2,7 @@ package com.pattanayutanachot.jirawat.core.bank.model;
 
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -54,4 +52,18 @@ public class Account {
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
+
+    // Constructor used in tests
+    public Account(Long id, String accountNumber, BigDecimal balance) {
+        this.id = id;
+        this.accountNumber = accountNumber;
+        this.balance = balance;
+        this.citizenId = "1234567890123";
+        this.thaiName = "Test Thai Name";
+        this.englishName = "Test English Name";
+        this.email = "test@example.com";
+        this.password = "password";
+        this.pin = "123456";
+        this.createdAt = LocalDateTime.now();
+    }
 }
