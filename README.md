@@ -149,7 +149,7 @@ Properties in `pom.xml`:
 
 ## Swagger API Docs
 
-Visit [Swagger UI](http://localhost:8080/swagger-ui.html)
+Visit [Swagger UI](  http://localhost:8080/swagger-ui/index.html)
 
 ### Deployment
 On merging PRs to `main`, a Docker image is built and published to GitHub Container Registry (GHCR).
