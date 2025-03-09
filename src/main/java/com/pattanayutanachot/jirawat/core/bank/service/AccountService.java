@@ -3,6 +3,7 @@ package com.pattanayutanachot.jirawat.core.bank.service;
 import com.pattanayutanachot.jirawat.core.bank.dto.AccountResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.TransferRequest;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
 import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
 import com.pattanayutanachot.jirawat.core.bank.model.TransactionType;
@@ -18,9 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,42 +42,42 @@ public class AccountService {
     public String createAccount(CreateAccountRequest request, Long tellerId) {
         log.info("Teller [{}] is creating an account for Citizen ID: {}", tellerId, request.citizenId());
 
-        // Find existing CUSTOMER user by citizenId
-        User user = userRepository.findByCitizenId(request.citizenId())
-                .orElseThrow(() -> new UsernameNotFoundException("Customer with Citizen ID not found."));
-
-        if (!Objects.equals(user.getThaiName(), request.thaiName()) || !Objects.equals(user.getEnglishName(), request.englishName()) ) {
-            throw new RuntimeException("CUSTOMER info invalids please re-kyc.");
-        }
-
-        // Ensure that only CUSTOMER roles can have a new account
-        boolean isCustomer = user.getRoles().stream()
-                .anyMatch(role -> role.getName().name().equals("CUSTOMER"));
-
-        if (!isCustomer) {
-            throw new RuntimeException("Only CUSTOMER users can have bank accounts.");
-        }
-
-        // Find the TELLER
+        // Ensure Teller Exists
         User teller = userRepository.findById(tellerId)
                 .orElseThrow(() -> new UsernameNotFoundException("Teller not found."));
 
-        // Generate a unique 7-digit account number
+        // Ensure the target user exists and is a CUSTOMER
+        User customer = userRepository.findByCitizenId(request.citizenId())
+                .orElseThrow(() -> new IllegalArgumentException("Customer with Citizen ID not found."));
+
+        if (!Objects.equals(customer.getThaiName(), request.thaiName()) || !Objects.equals(customer.getEnglishName(), request.englishName())) {
+            throw new IllegalArgumentException("CUSTOMER info invalid. Please re-verify.");
+        }
+
+        // Ensure the user is a CUSTOMER
+        boolean isCustomer = customer.getRoles().stream()
+                .anyMatch(role -> role.getName().name().equals("CUSTOMER"));
+
+        if (!isCustomer) {
+            throw new IllegalArgumentException("Only CUSTOMER users can have bank accounts.");
+        }
+
+        // Generate Unique 7-Digit Account Number
         String accountNumber = generateUniqueAccountNumber();
 
-        // Ensure the initial deposit is non-negative
+        // Ensure the Initial Deposit is Valid
         BigDecimal initialDeposit = request.initialDeposit() != null ? request.initialDeposit() : BigDecimal.ZERO;
 
         Account account = Account.builder()
                 .accountNumber(accountNumber)
                 .balance(initialDeposit)
-                .user(user)
+                .user(customer)
                 .createdByTeller(teller)
                 .build();
 
         accountRepository.save(account);
 
-        // Log the transaction if an initial deposit is provided
+        // Log the Transaction If Initial Deposit Exists
         if (initialDeposit.compareTo(BigDecimal.ZERO) > 0) {
             Transaction depositTransaction = Transaction.builder()
                     .account(account)
@@ -98,20 +99,16 @@ public class AccountService {
     public String deposit(DepositRequest request, Long tellerId) {
         log.info("Teller [{}] is depositing {} THB into account [{}]", tellerId, request.amount(), request.accountNumber());
 
-        // Validate amount
         if (request.amount() == null || request.amount().compareTo(BigDecimal.ONE) < 0) {
-            throw new RuntimeException("Deposit amount must be at least 1 THB.");
+            throw new IllegalArgumentException("Deposit amount must be at least 1 THB.");
         }
 
-        // Find the account by account number
         Account account = accountRepository.findByAccountNumber(request.accountNumber())
-                .orElseThrow(() -> new RuntimeException("Account not found."));
+                .orElseThrow(() -> new IllegalArgumentException("Account not found."));
 
-        // Update account balance
         account.setBalance(account.getBalance().add(request.amount()));
         accountRepository.save(account);
 
-        // Log the transaction
         Transaction depositTransaction = Transaction.builder()
                 .account(account)
                 .type(TransactionType.DEPOSIT)
@@ -124,11 +121,15 @@ public class AccountService {
     }
 
     /**
-     * Retrieves account details for the authenticated customer.
+     * Retrieves account details for the authenticated CUSTOMER.
      */
+    @Transactional(readOnly = true)
     public List<AccountResponse> getCustomerAccounts(Long customerId) {
         List<Account> accounts = accountRepository.findByUserId(customerId);
-
+        if (accounts.isEmpty()) {
+            log.info("No accounts found for Customer [{}]", customerId);
+            return List.of();
+        }
         return accounts.stream()
                 .map(account -> new AccountResponse(
                         account.getAccountNumber(),
@@ -139,13 +140,74 @@ public class AccountService {
     }
 
     /**
+     * Transfers money between accounts with PIN validation.
+     */
+    @Transactional
+    public String transferMoney(Long customerId, TransferRequest request) {
+        log.info("Customer [{}] is transferring {} THB to account [{}]", customerId, request.amount(), request.toAccountNumber());
+
+        // Find the sender's account
+        Account senderAccount = accountRepository.findByAccountNumber(request.fromAccountNumber())
+                .orElseThrow(() -> new RuntimeException("Sender account not found."));
+
+        // Verify the sender is the owner of the account
+        if (!senderAccount.getUser().getId().equals(customerId)) {
+            throw new RuntimeException("You can only transfer money from your own account.");
+        }
+
+        // Validate the PIN
+        if (!senderAccount.getUser().getPin().equals(request.pin())) {
+            throw new RuntimeException("Invalid PIN.");
+        }
+
+        // Ensure the recipient account exists
+        Account recipientAccount = accountRepository.findByAccountNumber(request.toAccountNumber())
+                .orElseThrow(() -> new RuntimeException("Recipient account not found."));
+
+        // Ensure sufficient balance
+        if (senderAccount.getBalance().compareTo(request.amount()) < 0) {
+            throw new RuntimeException("Insufficient balance.");
+        }
+
+        // Deduct from sender
+        senderAccount.setBalance(senderAccount.getBalance().subtract(request.amount()));
+        accountRepository.save(senderAccount);
+
+        // Credit recipient
+        recipientAccount.setBalance(recipientAccount.getBalance().add(request.amount()));
+        accountRepository.save(recipientAccount);
+
+        LocalDateTime createdAt = LocalDateTime.now();
+
+        // Log the transaction for both sender and recipient
+        Transaction depositTransaction = Transaction.builder()
+                .account(recipientAccount)
+                .type(TransactionType.DEPOSIT)
+                .amount(request.amount())
+                .createdAt(createdAt)
+                .build();
+        transactionRepository.save(depositTransaction);
+
+        Transaction withdrawalTransaction = Transaction.builder()
+                .account(senderAccount)
+                .type(TransactionType.WITHDRAWAL)
+                .amount(request.amount())
+                .createdAt(createdAt)
+                .build();
+        transactionRepository.save(withdrawalTransaction);
+
+        log.info("Transfer successful: {} THB from [{}] to [{}]", request.amount(), request.fromAccountNumber(), request.toAccountNumber());
+        return "Transfer successful.";
+    }
+
+    /**
      * Generates a unique 7-digit account number.
      */
     private String generateUniqueAccountNumber() {
         String accountNumber;
         do {
-            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000)); // Generate 7-digit number
-        } while (accountRepository.existsByAccountNumber(accountNumber)); // Ensure uniqueness
+            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000));
+        } while (accountRepository.existsByAccountNumber(accountNumber));
 
         return accountNumber;
     }

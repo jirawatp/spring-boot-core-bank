@@ -54,8 +54,8 @@ public class SecurityConfig {
                         // Ensure only tellers can create accounts
                         .requestMatchers("/api/account/create").hasAuthority("ROLE_TELLER")
 
-                        // Ensure only customer can see they self accounts
-                        .requestMatchers("/api/account/me").hasAuthority("ROLE_CUSTOMER")
+                        // Ensure only customer can see or transfer from they self accounts
+                        .requestMatchers("/api/account/me", "/api/account/transfer").hasAuthority("ROLE_CUSTOMER")
 
                         // Swagger access (OPTIONAL: Restrict this to development mode)
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
