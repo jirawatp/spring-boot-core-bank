@@ -1,5 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
@@ -53,10 +54,10 @@ public class TransactionService {
      * Retrieves a customer's bank statement for a specific month.
      */
     @Transactional(readOnly = true)
-    public List<BankStatementResponse> getBankStatement(Long customerId, int year, int month, String pin, String accountNumber ) {
-        log.info("Fetching bank statement for user [{}], [{accountNumber}] - Month: {} Year: {}", customerId, accountNumber, month, year);
+    public List<BankStatementResponse> getBankStatement(Long customerId, BankStatementRequest request) {
+        log.info("Fetching bank statement for user [{}], accountNumber [{}] - Month: {} Year: {}", customerId, request.accountNumber(), request.month(), request.year());
 
-        Account account = accountRepository.findByAccountNumber(accountNumber)
+        Account account = accountRepository.findByAccountNumber(request.accountNumber())
                 .orElseThrow(() -> new UsernameNotFoundException("Account not found."));
 
         if (!account.getUser().getId().equals(customerId)) {
@@ -66,15 +67,15 @@ public class TransactionService {
         // Verify PIN
         User customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Customer not found."));
-        if (!customer.getPin().equals(pin)) {
+        if (!customer.getPin().equals(request.pin())) {
             throw new RuntimeException("Invalid PIN.");
         }
 
         // Collect all transactions for the given month & year
         List<Transaction> transactions = transactionRepository.findByAccountAndCreatedAtBetweenOrderByCreatedAtAsc(
                 account,
-                LocalDateTime.of(year, month, 1, 0, 0),
-                LocalDateTime.of(year, month, LocalDateTime.now().getDayOfMonth(), 23, 59)
+                LocalDateTime.of(request.year(), request.month(), 1, 0, 0),
+                LocalDateTime.of(request.year(), request.month(), LocalDateTime.now().getDayOfMonth(), 23, 59)
         );
 
         if (transactions.isEmpty()) {

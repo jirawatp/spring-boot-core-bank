@@ -1,5 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.controller;
 
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
@@ -38,18 +39,15 @@ public class TransactionController {
     /**
      * Retrieve bank statement for a specific month (Only for CUSTOMERS).
      */
-    @GetMapping("/statement")
+    @PostMapping("/statement")
     @PreAuthorize("hasAuthority('ROLE_CUSTOMER')") // Only customers can access
     public ResponseEntity<List<BankStatementResponse>> getBankStatement(
             @AuthenticationPrincipal UserDetails customerDetails,
-            @RequestParam int year,
-            @RequestParam int month,
-            @RequestParam String pin,
-            @RequestParam String accountNumber) {
+            @Valid @RequestBody BankStatementRequest request) {
 
         User customer = userRepository.findByEmail(customerDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Customer not found."));
 
-        return ResponseEntity.ok(transactionService.getBankStatement(customer.getId(), year, month, pin, accountNumber));
+        return ResponseEntity.ok(transactionService.getBankStatement(customer.getId(), request));
     }
 }
