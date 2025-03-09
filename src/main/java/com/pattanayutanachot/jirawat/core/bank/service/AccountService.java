@@ -1,5 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
+import com.pattanayutanachot.jirawat.core.bank.dto.AccountResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
@@ -17,6 +18,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -39,6 +44,10 @@ public class AccountService {
         // Find existing CUSTOMER user by citizenId
         User user = userRepository.findByCitizenId(request.citizenId())
                 .orElseThrow(() -> new UsernameNotFoundException("Customer with Citizen ID not found."));
+
+        if (!Objects.equals(user.getThaiName(), request.thaiName()) || !Objects.equals(user.getEnglishName(), request.englishName()) ) {
+            throw new RuntimeException("CUSTOMER info invalids please re-kyc.");
+        }
 
         // Ensure that only CUSTOMER roles can have a new account
         boolean isCustomer = user.getRoles().stream()
@@ -115,8 +124,22 @@ public class AccountService {
     }
 
     /**
+     * Retrieves account details for the authenticated customer.
+     */
+    public List<AccountResponse> getCustomerAccounts(Long customerId) {
+        List<Account> accounts = accountRepository.findByUserId(customerId);
+
+        return accounts.stream()
+                .map(account -> new AccountResponse(
+                        account.getAccountNumber(),
+                        account.getBalance(),
+                        account.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * Generates a unique 7-digit account number.
-     * Ensures uniqueness before returning a valid account number.
      */
     private String generateUniqueAccountNumber() {
         String accountNumber;
