@@ -1,9 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.controller;
 
-import com.pattanayutanachot.jirawat.core.bank.dto.AccountResponse;
-import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
-import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
-import com.pattanayutanachot.jirawat.core.bank.dto.TransferRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.*;
 import com.pattanayutanachot.jirawat.core.bank.model.User;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import com.pattanayutanachot.jirawat.core.bank.service.AccountService;
@@ -72,5 +69,18 @@ public class AccountController {
         User customer = userRepository.findByEmail(customerDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Customer not found."));
         return ResponseEntity.ok(accountService.transferMoney(customer.getId(), request));
+    }
+
+    /**
+     * Verify transfer details before proceeding.
+     */
+    @PostMapping("/verify-transfer")
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER')") // Only customers can verify transfer
+    public ResponseEntity<VerifyTransferResponse> verifyTransfer(@AuthenticationPrincipal UserDetails customerDetails,
+                                                                 @Valid @RequestBody VerifyTransferRequest request) {
+        User customer = userRepository.findByEmail(customerDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Customer not found."));
+
+        return ResponseEntity.ok(accountService.verifyTransfer(customer.getId(), request));
     }
 }

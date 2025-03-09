@@ -1,9 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
-import com.pattanayutanachot.jirawat.core.bank.dto.AccountResponse;
-import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
-import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
-import com.pattanayutanachot.jirawat.core.bank.dto.TransferRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.*;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
 import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
 import com.pattanayutanachot.jirawat.core.bank.model.TransactionType;
@@ -11,6 +8,7 @@ import com.pattanayutanachot.jirawat.core.bank.model.User;
 import com.pattanayutanachot.jirawat.core.bank.repository.AccountRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.TransactionRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -22,6 +20,7 @@ import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -198,6 +197,53 @@ public class AccountService {
 
         log.info("Transfer successful: {} THB from [{}] to [{}]", request.amount(), request.fromAccountNumber(), request.toAccountNumber());
         return "Transfer successful.";
+    }
+
+    /**
+     * Verifies if a transfer can proceed based on sender balance and recipient existence.
+     */
+    @Transactional(readOnly = true)
+    public VerifyTransferResponse verifyTransfer(Long userId, @Valid VerifyTransferRequest request) {
+        log.info("Verifying transfer from [{}] to [{}] with amount [{}]",
+                request.withdrawalAccountNumber(), request.recipientAccountNumber(), request.amount());
+
+        // Validate sender account
+        Account senderAccount = accountRepository.findByAccountNumber(request.withdrawalAccountNumber())
+                .orElseThrow(() -> new RuntimeException("Sender account not found."));
+
+        // Ensure the sender owns the withdrawal account
+        if (!senderAccount.getUser().getId().equals(userId)) {
+            return VerifyTransferResponse.builder()
+                    .canTransfer(false)
+                    .message("You can only transfer from your own account.")
+                    .build();
+        }
+
+        Optional<Account> recipientAccountOpt = accountRepository.findByAccountNumber(request.recipientAccountNumber());
+        if (recipientAccountOpt.isEmpty()) {
+            return VerifyTransferResponse.builder()
+                    .canTransfer(false)
+                    .message("Recipient account not found.")
+                    .build();
+        }
+
+        Account recipientAccount = recipientAccountOpt.get();
+
+        if (senderAccount.getBalance().compareTo(request.amount()) < 0) {
+            return VerifyTransferResponse.builder()
+                    .canTransfer(false)
+                    .message("Insufficient balance.")
+                    .recipientThaiName(recipientAccount.getUser().getThaiName())
+                    .recipientEnglishName(recipientAccount.getUser().getEnglishName())
+                    .build();
+        }
+
+        return VerifyTransferResponse.builder()
+                .canTransfer(true)
+                .message("Transfer can proceed.")
+                .recipientThaiName(recipientAccount.getUser().getThaiName())
+                .recipientEnglishName(recipientAccount.getUser().getEnglishName())
+                .build();
     }
 
     /**
