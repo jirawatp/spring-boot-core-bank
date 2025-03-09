@@ -1,10 +1,13 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
 import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
-import com.pattanayutanachot.jirawat.core.bank.model.RoleType;
+import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
+import com.pattanayutanachot.jirawat.core.bank.model.TransactionType;
 import com.pattanayutanachot.jirawat.core.bank.model.User;
 import com.pattanayutanachot.jirawat.core.bank.repository.AccountRepository;
+import com.pattanayutanachot.jirawat.core.bank.repository.TransactionRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,25 +25,37 @@ public class AccountService {
 
     private final AccountRepository accountRepository;
     private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
     private static final SecureRandom RANDOM = new SecureRandom();
 
     /**
-     * Creates a new bank account for a user.
-     * Only a TELLER can create an account for a CUSTOMER or PERSON.
+     * Creates a new bank account for a CUSTOMER.
+     * Only a TELLER can perform this action.
      */
     @Transactional
     public String createAccount(CreateAccountRequest request, Long tellerId) {
         log.info("Teller [{}] is creating an account for Citizen ID: {}", tellerId, request.citizenId());
 
+        // Find existing CUSTOMER user by citizenId
         User user = userRepository.findByCitizenId(request.citizenId())
-                .filter(u -> u.getRoles().stream().anyMatch(role -> role.getName() == RoleType.CUSTOMER))
-                .orElseThrow(() -> new RuntimeException("No CUSTOMER user found with this Citizen ID."));
+                .orElseThrow(() -> new UsernameNotFoundException("Customer with Citizen ID not found."));
 
+        // Ensure that only CUSTOMER roles can have a new account
+        boolean isCustomer = user.getRoles().stream()
+                .anyMatch(role -> role.getName().name().equals("CUSTOMER"));
+
+        if (!isCustomer) {
+            throw new RuntimeException("Only CUSTOMER users can have bank accounts.");
+        }
+
+        // Find the TELLER
         User teller = userRepository.findById(tellerId)
                 .orElseThrow(() -> new UsernameNotFoundException("Teller not found."));
 
+        // Generate a unique 7-digit account number
         String accountNumber = generateUniqueAccountNumber();
 
+        // Ensure the initial deposit is non-negative
         BigDecimal initialDeposit = request.initialDeposit() != null ? request.initialDeposit() : BigDecimal.ZERO;
 
         Account account = Account.builder()
@@ -52,18 +67,62 @@ public class AccountService {
 
         accountRepository.save(account);
 
+        // Log the transaction if an initial deposit is provided
+        if (initialDeposit.compareTo(BigDecimal.ZERO) > 0) {
+            Transaction depositTransaction = Transaction.builder()
+                    .account(account)
+                    .type(TransactionType.DEPOSIT)
+                    .amount(initialDeposit)
+                    .build();
+            transactionRepository.save(depositTransaction);
+        }
+
         log.info("Account [{}] created successfully by Teller [{}]", accountNumber, tellerId);
         return "Account created successfully with number: " + accountNumber;
     }
 
     /**
+     * Deposits money into an existing account.
+     * Only a TELLER can perform this action.
+     */
+    @Transactional
+    public String deposit(DepositRequest request, Long tellerId) {
+        log.info("Teller [{}] is depositing {} THB into account [{}]", tellerId, request.amount(), request.accountNumber());
+
+        // Validate amount
+        if (request.amount() == null || request.amount().compareTo(BigDecimal.ONE) < 0) {
+            throw new RuntimeException("Deposit amount must be at least 1 THB.");
+        }
+
+        // Find the account by account number
+        Account account = accountRepository.findByAccountNumber(request.accountNumber())
+                .orElseThrow(() -> new RuntimeException("Account not found."));
+
+        // Update account balance
+        account.setBalance(account.getBalance().add(request.amount()));
+        accountRepository.save(account);
+
+        // Log the transaction
+        Transaction depositTransaction = Transaction.builder()
+                .account(account)
+                .type(TransactionType.DEPOSIT)
+                .amount(request.amount())
+                .build();
+        transactionRepository.save(depositTransaction);
+
+        log.info("Successfully deposited {} THB into account [{}] by Teller [{}]", request.amount(), request.accountNumber(), tellerId);
+        return "Deposit successful. New balance: " + account.getBalance();
+    }
+
+    /**
      * Generates a unique 7-digit account number.
+     * Ensures uniqueness before returning a valid account number.
      */
     private String generateUniqueAccountNumber() {
         String accountNumber;
         do {
-            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000));
-        } while (accountRepository.existsByAccountNumber(accountNumber));
+            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000)); // Generate 7-digit number
+        } while (accountRepository.existsByAccountNumber(accountNumber)); // Ensure uniqueness
 
         return accountNumber;
     }

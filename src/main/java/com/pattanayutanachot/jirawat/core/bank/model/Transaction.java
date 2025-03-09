@@ -1,7 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import lombok.*;
 
 import java.math.BigDecimal;
@@ -9,9 +8,11 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder // ✅ Add this annotation to enable builder()
 public class Transaction {
 
     @Id
@@ -20,26 +21,23 @@ public class Transaction {
 
     @ManyToOne
     @JoinColumn(name = "account_id", nullable = false)
-    @NotNull(message = "Account ID is required")
     private Account account;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @NotNull(message = "Transaction type is required")
-    private String type; // Deposit, Withdraw, Transfer
+    private TransactionType type;
 
-    @Column(nullable = false, precision = 15, scale = 2)
-    @DecimalMin(value = "0.01", message = "Transaction amount must be greater than zero")
+    @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
 
-    // Constructor used in tests
-    public Transaction(Long id, Account account, String type, BigDecimal amount) {
-        this.id = id;
-        this.account = account;
-        this.type = type;
-        this.amount = amount;
+    /**
+     * Automatically set created_at before inserting into the database.
+     */
+    @PrePersist
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
 }

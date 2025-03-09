@@ -41,7 +41,7 @@ CREATE TABLE transactions (
                               id SERIAL PRIMARY KEY,
                               account_id BIGINT REFERENCES accounts(id) ON DELETE CASCADE,
                               type VARCHAR(50) NOT NULL CHECK (type IN ('DEPOSIT', 'WITHDRAWAL', 'TRANSFER')),
-                              amount DECIMAL(15, 2) NOT NULL CHECK (amount >= 0), -- Allow zero for initial deposit
+                              amount DECIMAL(15, 2) NOT NULL CHECK (amount >= 1), -- Allow deposits of at least 1 THB
                               created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
