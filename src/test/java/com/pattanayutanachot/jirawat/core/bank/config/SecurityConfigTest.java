@@ -1,46 +1,47 @@
 package com.pattanayutanachot.jirawat.core.bank.config;
 
+import com.pattanayutanachot.jirawat.core.bank.security.CustomUserDetailsService;
+import com.pattanayutanachot.jirawat.core.bank.security.JwtAuthenticationFilter;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.mockito.Mockito;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
-import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.web.SecurityFilterChain;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
-@WebMvcTest(SecurityConfig.class)
 class SecurityConfigTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+    private SecurityConfig securityConfig;
 
-    @MockBean
-    private UserDetailsService userDetailsService;
+    @BeforeEach
+    void setUp() {
+        CustomUserDetailsService mockUserDetailsService = mock(CustomUserDetailsService.class);
+        JwtAuthenticationFilter mockJwtAuthenticationFilter = mock(JwtAuthenticationFilter.class);
+        securityConfig = new SecurityConfig(mockUserDetailsService, mockJwtAuthenticationFilter);
+    }
 
-    @MockBean
-    private AuthenticationManager authenticationManager;
+    @Test
+    void securityFilterChain_ShouldBeCreatedSuccessfully() throws Exception {
+        SecurityFilterChain securityFilterChain = securityConfig.securityFilterChain(Mockito.mock(org.springframework.security.config.annotation.web.builders.HttpSecurity.class));
+        assertThat(securityFilterChain).isNotNull();
+    }
 
+    @Test
+    void authenticationManager_ShouldReturnProviderManager() {
+        AuthenticationManager authenticationManager = securityConfig.authenticationManager();
+        assertThat(authenticationManager).isInstanceOf(ProviderManager.class);
+    }
 
-//    @Test
-//    void testPublicApiAuthIsAccessible() throws Exception {
-//        mockMvc.perform(get("/api/auth/test"))
-//                .andExpect(status().isOk());
-//    }
-//
-//    @Test
-//    void testOtherApiRequiresAuthentication() throws Exception {
-//        mockMvc.perform(get("/api/private/test"))
-//                .andExpect(status().isUnauthorized());
-//    }
-//
-//    @Test
-//    void testAuthenticatedApiAccess() throws Exception {
-//        mockMvc.perform(get("/api/private/test")
-//                        .with(SecurityMockMvcRequestPostProcessors.user("user").roles("USER")))
-//                .andExpect(status().isOk());
-//    }
+    @Test
+    void passwordEncoder_ShouldReturnBCryptPasswordEncoder() {
+        PasswordEncoder passwordEncoder = securityConfig.passwordEncoder();
+        assertThat(passwordEncoder).isNotNull();
+        assertThat(passwordEncoder.encode("test")).isNotEmpty();
+    }
 }

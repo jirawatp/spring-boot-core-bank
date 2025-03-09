@@ -1,138 +1,156 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
-import com.pattanayutanachot.jirawat.core.bank.exception.AccountNotFoundException;
-import com.pattanayutanachot.jirawat.core.bank.model.Account;
+import com.pattanayutanachot.jirawat.core.bank.dto.*;
+import com.pattanayutanachot.jirawat.core.bank.model.*;
 import com.pattanayutanachot.jirawat.core.bank.repository.AccountRepository;
+import com.pattanayutanachot.jirawat.core.bank.repository.TransactionRepository;
+import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.MockitoAnnotations;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
 class AccountServiceTest {
-
-    @Mock
-    private AccountRepository accountRepository;
 
     @InjectMocks
     private AccountService accountService;
 
-    private Account testAccount;
+    @Mock
+    private AccountRepository accountRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
+    private TransactionRepository transactionRepository;
+
+    private User teller;
+    private User customer;
+    private Account senderAccount;
+    private Account recipientAccount;
 
     @BeforeEach
     void setUp() {
-        testAccount = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(5000.00),
-                LocalDateTime.now()
-        );
+        MockitoAnnotations.openMocks(this);
+
+        teller = new User();
+        teller.setId(1L);
+        teller.setEmail("teller@example.com");
+        teller.setRoles(Set.of(new Role(1L, RoleType.TELLER)));
+
+        customer = new User();
+        customer.setId(2L);
+        customer.setEmail("customer@example.com");
+        customer.setRoles(Set.of(new Role(2L, RoleType.CUSTOMER)));
+        customer.setPin("123456");
+
+        senderAccount = Account.builder()
+                .id(10L)
+                .accountNumber("1234567")
+                .balance(new BigDecimal("5000"))
+                .user(customer)
+                .build();
+
+        recipientAccount = Account.builder()
+                .id(11L)
+                .accountNumber("7654321")
+                .balance(new BigDecimal("2000"))
+                .user(new User(3L, "recipient@example.com", "password", "3333333333333", "Recipient Thai", "Recipient Eng", "654321", Set.of(new Role(2L, RoleType.CUSTOMER))))
+                .build();
     }
 
     @Test
-    void testGetAllAccounts() {
-        List<Account> accounts = Arrays.asList(testAccount);
-        when(accountRepository.findAll()).thenReturn(accounts);
+    void createAccount_Success() {
+        CreateAccountRequest request = new CreateAccountRequest("1111111111111", "John Doe", "John Doe Eng", new BigDecimal("1000"));
 
-        List<Account> result = accountService.getAllAccounts();
+        when(userRepository.findById(1L)).thenReturn(Optional.of(teller));
+        when(userRepository.findByCitizenId("1111111111111")).thenReturn(Optional.of(customer));
+        when(accountRepository.existsByAccountNumber(any())).thenReturn(false);
+        when(accountRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        assertEquals(1, result.size());
-        assertEquals(testAccount, result.get(0));
-        verify(accountRepository, times(1)).findAll();
-    }
-
-    @Test
-    void testGetAccountById_Success() {
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
-
-        Account result = accountService.getAccountById(1L);
+        String result = accountService.createAccount(request, 1L);
 
         assertNotNull(result);
-        assertEquals("Somchai Jaidee", result.getEnglishName());
-        verify(accountRepository, times(1)).findById(1L);
+        assertTrue(result.contains("Account created successfully"));
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
 
     @Test
-    void testGetAccountById_NotFound() {
-        when(accountRepository.findById(2L)).thenReturn(Optional.empty());
+    void deposit_Success() {
+        DepositRequest request = new DepositRequest("1234567", new BigDecimal("2000"));
 
-        assertThrows(AccountNotFoundException.class, () -> accountService.getAccountById(2L));
+        when(accountRepository.findByAccountNumber("1234567")).thenReturn(Optional.of(senderAccount));
 
-        verify(accountRepository, times(1)).findById(2L);
-    }
-
-    @Test
-    void testCreateAccount() {
-        when(accountRepository.save(any(Account.class))).thenReturn(testAccount);
-
-        Account result = accountService.createAccount(testAccount);
+        String result = accountService.deposit(request, 1L);
 
         assertNotNull(result);
-        assertEquals("1234567890", result.getAccountNumber());
-        verify(accountRepository, times(1)).save(testAccount);
+        assertTrue(result.contains("Deposit successful"));
+        assertEquals(new BigDecimal("7000"), senderAccount.getBalance());
+        verify(transactionRepository, times(1)).save(any(Transaction.class));
     }
 
     @Test
-    void testUpdateAccount() {
-        Account updatedDetails = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมหญิง ใจดี",
-                "Somying Jaidee",
-                "somying@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(7000.00),
-                LocalDateTime.now()
-        );
+    void transferMoney_Success() {
+        TransferRequest request = new TransferRequest("1234567", "7654321", new BigDecimal("1000"), "123456");
 
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
-        when(accountRepository.save(any(Account.class))).thenReturn(updatedDetails);
+        when(accountRepository.findByAccountNumber("1234567")).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByAccountNumber("7654321")).thenReturn(Optional.of(recipientAccount));
 
-        Account result = accountService.updateAccount(1L, updatedDetails);
+        String result = accountService.transferMoney(2L, request);
 
-        assertEquals("Somying Jaidee", result.getEnglishName());
-        assertEquals("somying@example.com", result.getEmail());
-        verify(accountRepository, times(1)).findById(1L);
-        verify(accountRepository, times(1)).save(testAccount);
+        assertNotNull(result);
+        assertTrue(result.contains("Transfer successful"));
+        assertEquals(new BigDecimal("4000"), senderAccount.getBalance());
+        assertEquals(new BigDecimal("3000"), recipientAccount.getBalance());
+        verify(transactionRepository, times(2)).save(any(Transaction.class));
     }
 
     @Test
-    void testDeleteAccount() {
-        when(accountRepository.findById(1L)).thenReturn(Optional.of(testAccount));
-        doNothing().when(accountRepository).delete(testAccount);
+    void transferMoney_InsufficientBalance() {
+        TransferRequest request = new TransferRequest("1234567", "7654321", new BigDecimal("6000"), "123456");
 
-        accountService.deleteAccount(1L);
+        when(accountRepository.findByAccountNumber("1234567")).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByAccountNumber("7654321")).thenReturn(Optional.of(recipientAccount));
 
-        verify(accountRepository, times(1)).findById(1L);
-        verify(accountRepository, times(1)).delete(testAccount);
+        RuntimeException exception = assertThrows(RuntimeException.class, () -> accountService.transferMoney(2L, request));
+
+        assertEquals("Insufficient balance.", exception.getMessage());
+        verify(transactionRepository, never()).save(any(Transaction.class));
     }
 
     @Test
-    void testDeleteAccount_NotFound() {
-        when(accountRepository.findById(2L)).thenReturn(Optional.empty());
+    void verifyTransfer_Success() {
+        VerifyTransferRequest request = new VerifyTransferRequest("1234567", "7654321", new BigDecimal("1000"));
 
-        assertThrows(AccountNotFoundException.class, () -> accountService.deleteAccount(2L));
+        when(accountRepository.findByAccountNumber("1234567")).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByAccountNumber("7654321")).thenReturn(Optional.of(recipientAccount));
 
-        verify(accountRepository, times(1)).findById(2L);
-        verify(accountRepository, times(0)).delete(any(Account.class));
+        VerifyTransferResponse response = accountService.verifyTransfer(2L, request);
+
+        assertTrue(response.canTransfer());
+        assertEquals("Transfer can proceed.", response.message());
+        assertEquals("Recipient Thai", response.recipientThaiName());
+        assertEquals("Recipient Eng", response.recipientEnglishName());
+    }
+
+    @Test
+    void verifyTransfer_InsufficientBalance() {
+        VerifyTransferRequest request = new VerifyTransferRequest("1234567", "7654321", new BigDecimal("6000"));
+
+        when(accountRepository.findByAccountNumber("1234567")).thenReturn(Optional.of(senderAccount));
+        when(accountRepository.findByAccountNumber("7654321")).thenReturn(Optional.of(recipientAccount));
+
+        VerifyTransferResponse response = accountService.verifyTransfer(2L, request);
+
+        assertFalse(response.canTransfer());
+        assertEquals("Insufficient balance.", response.message());
     }
 }

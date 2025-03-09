@@ -1,37 +1,58 @@
 package com.pattanayutanachot.jirawat.core.bank.util;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.security.KeyPair;
-import java.security.KeyPairGenerator;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class CryptoUtilTest {
 
-    @Test
-    void testEncryptionAndDecryption() throws Exception {
-        KeyPair keyPair = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        String originalText = "HelloWorld";
+    private KeyPair keyPair;
+    private PublicKey publicKey;
+    private PrivateKey privateKey;
 
-        String encryptedText = CryptoUtil.encrypt(originalText, keyPair.getPublic());
-        String decryptedText = CryptoUtil.decrypt(encryptedText, keyPair.getPrivate());
-
-        assertEquals(originalText, decryptedText);
+    @BeforeEach
+    void setUp() throws Exception {
+        keyPair = CryptoUtil.generateKeyPair();
+        publicKey = keyPair.getPublic();
+        privateKey = keyPair.getPrivate();
     }
 
     @Test
-    void testDecryptionWithWrongKey_ShouldFail() throws Exception {
-        KeyPair keyPair1 = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        KeyPair keyPair2 = KeyPairGenerator.getInstance("RSA").generateKeyPair();
-        String originalText = "SensitiveData";
+    void testGenerateKeyPair_ShouldReturnNonNullKeys() {
+        assertNotNull(publicKey, "Public key should not be null");
+        assertNotNull(privateKey, "Private key should not be null");
+    }
 
-        String encryptedText = CryptoUtil.encrypt(originalText, keyPair1.getPublic());
+    @Test
+    void testEncryptAndDecrypt_ShouldReturnOriginalData() throws Exception {
+        String originalData = "Hello, Secure World!";
+
+        // Encrypt data
+        String encryptedData = CryptoUtil.encrypt(originalData, publicKey);
+        assertNotNull(encryptedData, "Encrypted data should not be null");
+
+        // Decrypt data
+        String decryptedData = CryptoUtil.decrypt(encryptedData, privateKey);
+        assertEquals(originalData, decryptedData, "Decrypted data should match the original data");
+    }
+
+    @Test
+    void testDecrypt_ShouldThrowException_WhenUsingWrongPrivateKey() throws Exception {
+        KeyPair wrongKeyPair = CryptoUtil.generateKeyPair();
+        PrivateKey wrongPrivateKey = wrongKeyPair.getPrivate();
+
+        String originalData = "Sensitive Information";
+        String encryptedData = CryptoUtil.encrypt(originalData, publicKey);
 
         Exception exception = assertThrows(Exception.class, () ->
-                CryptoUtil.decrypt(encryptedText, keyPair2.getPrivate())
+                CryptoUtil.decrypt(encryptedData, wrongPrivateKey)
         );
 
-        assertNotNull(exception.getMessage());
+        assertNotNull(exception.getMessage(), "Exception message should not be null");
     }
 }

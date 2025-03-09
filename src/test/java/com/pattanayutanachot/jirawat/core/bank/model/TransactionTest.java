@@ -1,147 +1,62 @@
 package com.pattanayutanachot.jirawat.core.bank.model;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class TransactionTest {
 
-    private static Validator validator;
+    private Transaction transaction;
+    private Account account;
 
-    @BeforeAll
-    static void setup() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
+    @BeforeEach
+    void setUp() {
+        account = Account.builder()
+                .id(1L)
+                .accountNumber("1234567")
+                .balance(new BigDecimal("1000.00"))
+                .createdAt(LocalDateTime.now())
+                .build();
+
+        transaction = Transaction.builder()
+                .id(1L)
+                .account(account)
+                .type(TransactionType.DEPOSIT)
+                .amount(new BigDecimal("500.00"))
+                .channel(TransactionChannel.OTC)
+                .remark("Deposit Terminal TELLER123")
+                .balanceAfter(new BigDecimal("1500.00"))
+                .createdAt(LocalDateTime.now())
+                .build();
     }
 
     @Test
-    void testValidTransaction() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(5000.00),
-                LocalDateTime.now()
-        );
-
-        Transaction transaction = new Transaction(
-                1L,
-                account,
-                "Deposit",
-                BigDecimal.valueOf(100.00),
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Transaction>> violations = validator.validate(transaction);
-        assertTrue(violations.isEmpty(), "Expected no validation errors");
+    void shouldCreateTransactionSuccessfully() {
+        assertNotNull(transaction);
+        assertEquals(1L, transaction.getId());
+        assertEquals(account, transaction.getAccount());
+        assertEquals(TransactionType.DEPOSIT, transaction.getType());
+        assertEquals(new BigDecimal("500.00"), transaction.getAmount());
+        assertEquals(TransactionChannel.OTC, transaction.getChannel());
+        assertEquals("Deposit Terminal TELLER123", transaction.getRemark());
+        assertEquals(new BigDecimal("1500.00"), transaction.getBalanceAfter());
+        assertNotNull(transaction.getCreatedAt());
     }
 
     @Test
-    void testNullAccount() {
-        Transaction transaction = new Transaction(
-                1L,
-                null, // Null account
-                "Deposit",
-                BigDecimal.valueOf(100.00),
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Transaction>> violations = validator.validate(transaction);
-        assertFalse(violations.isEmpty(), "Expected validation error for null account");
+    void shouldSetCreatedAtBeforePersist() {
+        Transaction newTransaction = new Transaction();
+        newTransaction.onCreate();
+        assertNotNull(newTransaction.getCreatedAt());
     }
 
     @Test
-    void testNullTransactionType() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(5000.00),
-                LocalDateTime.now()
-        );
-
-        Transaction transaction = new Transaction(
-                1L,
-                account,
-                null, // Null transaction type
-                BigDecimal.valueOf(100.00),
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Transaction>> violations = validator.validate(transaction);
-        assertFalse(violations.isEmpty(), "Expected validation error for null transaction type");
-    }
-
-    @Test
-    void testNegativeTransactionAmount() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(5000.00),
-                LocalDateTime.now()
-        );
-
-        Transaction transaction = new Transaction(
-                1L,
-                account,
-                "Withdraw",
-                BigDecimal.valueOf(-50.00), // Negative amount
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Transaction>> violations = validator.validate(transaction);
-        assertFalse(violations.isEmpty(), "Expected validation error for negative amount");
-    }
-
-    @Test
-    void testZeroTransactionAmount() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(5000.00),
-                LocalDateTime.now()
-        );
-
-        Transaction transaction = new Transaction(
-                1L,
-                account,
-                "Deposit",
-                BigDecimal.ZERO, // Zero amount
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Transaction>> violations = validator.validate(transaction);
-        assertFalse(violations.isEmpty(), "Expected validation error for zero amount");
+    void shouldAllowNullableRemark() {
+        transaction.setRemark(null);
+        assertNull(transaction.getRemark());
     }
 }

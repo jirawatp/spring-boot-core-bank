@@ -1,96 +1,115 @@
 package com.pattanayutanachot.jirawat.core.bank.controller;
 
-import com.pattanayutanachot.jirawat.core.bank.model.Account;
-import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
+import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
+import com.pattanayutanachot.jirawat.core.bank.model.User;
+import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import com.pattanayutanachot.jirawat.core.bank.service.TransactionService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.http.ResponseEntity;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+@MockitoSettings(strictness = Strictness.LENIENT)
 class TransactionControllerTest {
 
+    private MockMvc mockMvc;
+
+    @Mock
     private TransactionService transactionService;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @InjectMocks
     private TransactionController transactionController;
-    private Account mockAccount;
 
     @BeforeEach
     void setUp() {
-        transactionService = Mockito.mock(TransactionService.class);
-        transactionController = new TransactionController(transactionService);
-        mockAccount = new Account(1L, "1234567890", "1234567890123", "สมชาย ใจดี", "Somchai Jaidee",
-                "somchai@example.com", "password123", "123456", BigDecimal.valueOf(5000.0), LocalDateTime.now());
+        mockMvc = MockMvcBuilders.standaloneSetup(transactionController).build();
     }
 
     @Test
-    void getAllTransactions() {
-        Transaction transaction = new Transaction(1L, mockAccount, "DEPOSIT", BigDecimal.valueOf(500), LocalDateTime.now());
-        List<Transaction> transactions = Arrays.asList(transaction);
+    void getAllTransactions_ShouldReturnTransactions_WhenTellerAuthorized() throws Exception {
+        List<TransactionResponse> transactions = List.of(
+                new TransactionResponse(1L, "1234567", "DEPOSIT", BigDecimal.valueOf(100.00), null)
+        );
 
         when(transactionService.getAllTransactions()).thenReturn(transactions);
 
-        ResponseEntity<List<Transaction>> response = transactionController.getAllTransactions();
-
-        assertEquals(1, response.getBody().size());
-        assertEquals("DEPOSIT", response.getBody().get(0).getType());
+        mockMvc.perform(get("/api/transaction/transactions")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(transactions.size()))
+                .andExpect(jsonPath("$[0].accountNumber").value("1234567"))
+                .andExpect(jsonPath("$[0].transactionType").value("DEPOSIT"));
     }
 
     @Test
-    void getTransactionById() {
-        Transaction transaction = new Transaction(1L, mockAccount, "DEPOSIT", BigDecimal.valueOf(500), LocalDateTime.now());
+    void getBankStatement_ShouldReturnStatement_WhenCustomerAuthorized() throws Exception {
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("customer@example.com");
 
-        when(transactionService.getTransactionById(1L)).thenReturn(transaction);
+        when(userRepository.findByEmail("customer@example.com")).thenReturn(Optional.of(user));
 
-        ResponseEntity<Transaction> response = transactionController.getTransactionById(1L);
+        List<BankStatementResponse> bankStatement = List.of(
+                BankStatementResponse.builder()
+                        .accountNumber("1234567")
+                        .date("2025-03-09")
+                        .time("14:30:00")
+                        .code("TRF")
+                        .channel("MOBILE")
+                        .debit(BigDecimal.valueOf(500.00))
+                        .credit(null)
+                        .balance(BigDecimal.valueOf(1500.00))
+                        .remark("Transfer to x7890 John Doe")
+                        .build(),
 
-        assertEquals("DEPOSIT", response.getBody().getType());
-    }
+                BankStatementResponse.builder()
+                        .accountNumber("1234567")
+                        .date("2025-03-08")
+                        .time("10:15:00")
+                        .code("DEP")
+                        .channel("ATM")
+                        .debit(null)
+                        .credit(BigDecimal.valueOf(2000.00))
+                        .balance(BigDecimal.valueOf(2000.00))
+                        .remark("Deposit Terminal 1234")
+                        .build()
+        );
 
-    @Test
-    void deposit() {
-        Transaction depositTransaction = new Transaction(null, mockAccount, "DEPOSIT", BigDecimal.valueOf(500), LocalDateTime.now());
+        when(transactionService.getBankStatement(eq(1L), any(BankStatementRequest.class))).thenReturn(bankStatement);
 
-        when(transactionService.deposit(depositTransaction)).thenReturn(depositTransaction);
-
-        ResponseEntity<Transaction> response = transactionController.deposit(depositTransaction);
-
-        assertEquals("DEPOSIT", response.getBody().getType());
-        assertEquals(BigDecimal.valueOf(500), response.getBody().getAmount());
-    }
-
-    @Test
-    void withdraw() {
-        Transaction withdrawTransaction = new Transaction(null, mockAccount, "WITHDRAW", BigDecimal.valueOf(200), LocalDateTime.now());
-
-        when(transactionService.withdraw(withdrawTransaction)).thenReturn(withdrawTransaction);
-
-        ResponseEntity<Transaction> response = transactionController.withdraw(withdrawTransaction);
-
-        assertEquals("WITHDRAW", response.getBody().getType());
-        assertEquals(BigDecimal.valueOf(200), response.getBody().getAmount());
-    }
-
-    @Test
-    void transfer() {
-        Account toAccount = new Account(2L, "0987654321", "9876543210987", "สมหญิง ใจดี", "Somying Jaidee",
-                "somying@example.com", "password123", "654321", BigDecimal.valueOf(3000.0), LocalDateTime.now());
-
-        Transaction transferTransaction = new Transaction(1L, mockAccount, "TRANSFER", BigDecimal.valueOf(1000), LocalDateTime.now());
-
-        when(transactionService.transfer(1L, 2L, BigDecimal.valueOf(1000))).thenReturn(transferTransaction);
-
-        ResponseEntity<Transaction> response = transactionController.transfer(1L, 2L, BigDecimal.valueOf(1000));
-
-        assertEquals("TRANSFER", response.getBody().getType());
-        assertEquals(BigDecimal.valueOf(1000), response.getBody().getAmount());
+        mockMvc.perform(post("/api/transaction/statement")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"year\": 2025, \"month\": 3, \"accountNumber\": \"1234567\", \"pin\": \"1234\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(bankStatement.size()))
+                .andExpect(jsonPath("$[0].accountNumber").value("1234567"))
+                .andExpect(jsonPath("$[0].date").value("2025-03-09"))
+                .andExpect(jsonPath("$[0].time").value("14:30:00"))
+                .andExpect(jsonPath("$[0].code").value("TRF"))
+                .andExpect(jsonPath("$[0].channel").value("MOBILE"))
+                .andExpect(jsonPath("$[0].debit").value(500.00))
+                .andExpect(jsonPath("$[0].credit").doesNotExist())
+                .andExpect(jsonPath("$[0].balance").value(1500.00))
+                .andExpect(jsonPath("$[0].remark").value("Transfer to x7890 John Doe"));
     }
 }
