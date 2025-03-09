@@ -1,20 +1,18 @@
 package com.pattanayutanachot.jirawat.core.bank.model;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.NotNull;
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "transactions")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class Transaction {
 
     @Id
@@ -23,17 +21,33 @@ public class Transaction {
 
     @ManyToOne
     @JoinColumn(name = "account_id", nullable = false)
-    @NotNull(message = "Account ID is required")
     private Account account;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    @NotNull(message = "Transaction type is required")
-    private String type; // Deposit, Withdraw, Transfer
+    private TransactionType type;
 
-    @Column(nullable = false, precision = 15, scale = 2)
-    @DecimalMin(value = "0.01", message = "Transaction amount must be greater than zero")
+    @Column(nullable = false)
     private BigDecimal amount;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private TransactionChannel channel;
+
+    @Column(nullable = true)
+    private String remark;
+
+    @Column(nullable = false)
+    private BigDecimal balanceAfter;
+
+    @Column(nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    /**
+     * Automatically set created_at before inserting into the database.
+     */
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }

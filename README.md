@@ -1,158 +1,172 @@
 # Spring Boot Core Bank
 
-![Build and Test](https://github.com/jirawatp/spring-boot-core-bank/actions/workflows/build.yml/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=jirawatp_spring-boot-core-bank&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=jirawatp_spring-boot-core-bank)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=jirawatp_spring-boot-core-bank&metric=coverage)](https://sonarcloud.io/summary/new_code?id=jirawatp_spring-boot-core-bank)
-
-
 ## Overview
+Spring Boot Core Bank is a core banking system built using Spring Boot, designed with an Event-Driven Architecture.  
+It supports authentication, account management, transactions, and reporting functionalities while integrating with PostgreSQL, Kafka, and Kong API Gateway.
 
-This project is a Spring Boot-based banking application providing core banking functionalities such as account management, transactions, and security integration. It includes database interactions via PostgreSQL, caching via Redis, API gateway via Kong, and supports authentication via JWT, API Key, and Keycloak.
+## Features
 
-## Project Information
+### Authentication & Authorization
+- Supports JWT Authentication
+- Implements Role-based Access Control (RBAC) (Super Admin, Teller, Customer, Person)
+- Uses OAuth 2.0 with Keycloak for Single Sign-On (SSO) (not implemented yet)
+- Secure endpoints using Spring Security
 
-- **Java version**: 17
-- **Spring Boot version**: 3.2.3
-- **Packaging**: JAR
-- **License**: No License
+### Account Management
+- Super Admin can register tellers
+- Tellers can create accounts for customers
+- Customers can manage their accounts after login
+
+### Transactions
+- Customers can transfer money between accounts with PIN verification
+- Tellers can deposit money into customer accounts
+- All transactions are logged and stored for reporting
+
+### Event-Driven Architecture (not implemented yet)
+- Transactions trigger Kafka events for processing
+- Supports real-time reporting and reconciliation batch processing
+
+### API Gateway & Security (not implemented yet)
+- Kong API Gateway manages traffic and secures API endpoints
+- Rate limiting and API authentication using Keycloak and JWT tokens
+
+### Data Storage & Caching
+- PostgreSQL for persistent data storage
+- Redis for caching frequently accessed data
+- AWS S3 for log and report storage (not implemented yet)
 
 ## Tech Stack
 
-- Java 17
-- Spring Boot
-- PostgreSQL
-- Redis (caching)
-- Flyway (DB migrations)
-- JWT and API Key for authentication
-- Keycloak (Identity Provider)
-- Kong (API Gateway)
-- Swagger (OpenAPI)
-- SonarQube (Code Quality)
+| Technology       | Description |
+|-----------------|------------|
+| Spring Boot     | Core framework for backend services |
+| PostgreSQL      | Relational database for storing accounts & transactions |
+| Kafka (not implemented yet) | Message queue for event-driven processing |
+| Redis          | Caching layer for faster performance |
+| Kong API Gateway (not implemented yet) | Secure API access with rate limiting and authentication |
+| Keycloak (not implemented yet) | Identity provider for authentication & authorization |
+| AWS S3 (not implemented yet) | File storage for logs and reports |
 
-## Project Structure
-```
-com.pattanayutanachot.jirawat.core.bank
-├── controller/
-├── model/
-├── repository/
-├── service/
-├── config/
-├── exception/
-├── validation/
-└── util/
-```
+## System Architecture
 
-## CI/CD
+Below is the high-level system architecture diagram:
 
-- **Unit tests and SonarQube analysis** run on every PR.
-- **Docker Image** created and published to GitHub Container Registry upon merging to the `main` branch.
+![System Architecture](diagrams/spring-boot-core-bank.jpg)
 
-## Local Development
+### System Components:
+1. Users  
+   - Super Admin: Manages tellers  
+   - Teller: Creates accounts, deposits money  
+   - Customer: Transfers money, requests statements  
+
+2. API Gateway (Kong) (not implemented yet)
+   - Manages authentication & rate limiting
+   - Routes API requests to backend services
+
+3. Core Services
+   - Auth Service: Handles user authentication & JWT tokens
+   - User Service: Manages customer data & profiles
+   - Account Service: Manages bank accounts
+   - Transaction Service: Processes deposits, transfers, and generates transaction logs
+
+4. Event Processing (not implemented yet)
+   - Kafka: Handles transaction events for reporting & reconciliation
+   - Reporting Service: Generates real-time transaction reports
+   - Reconcile Batch: Ensures account balances match transactions
+
+5. Data Storage
+   - PostgreSQL: Stores customer, account, and transaction data
+   - Redis: Caches frequently accessed data
+   - AWS S3 (not implemented yet): Stores archived transaction logs
+
+## Setup & Installation
 
 ### Prerequisites
-- Java 17
-- Docker (PostgreSQL, Redis, Kong)
+- Java 17+
+- Docker & Docker Compose
+- PostgreSQL
+- Redis
+- (Kafka, Kong API Gateway, and Keycloak are planned but not implemented yet)
 
-## Local Environment Variables (`.env`)
-
+### Clone the Repository
 ```sh
-SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/corebank
-SPRING_DATASOURCE_USERNAME=postgres
-SPRING_DATASOURCE_PASSWORD=postgres
-SPRING_REDIS_HOST=localhost
-SPRING_REDIS_PORT=6379
-SPRING_SECURITY_OAUTH2_CLIENT_PROVIDER_KEYCLOAK_ISSUER_URI=http://localhost:8081/auth/realms/corebank
-JAVA_OPTS=-Xms512m -Xmx1024m
-
-SPRING_PROFILES_ACTIVE=local
+git clone https://github.com/jirawatp/spring-boot-core-bank.git
+cd spring-boot-core-bank
 ```
 
-## Local Application Properties (`application-local.properties`)
-
-```properties
-spring.datasource.url=jdbc:postgresql://localhost:5432/core_bank
-spring.datasource.username=${POSTGRES_USER}
-spring.datasource.password=${POSTGRES_PASSWORD}
-spring.datasource.driver-class-name=org.postgresql.Driver
-
-spring.redis.host=${REDIS_HOST}
-spring.redis.port=${REDIS_PORT}
-
-spring.flyway.enabled=false
-
-spring.application.name=spring-boot-core-bank
-spring.application.version=1.0.0
-```
-
-## Docker (for local development)
-
-Run PostgreSQL, Redis, and Kong locally:
-
+### Start Required Services (Docker)
+To start PostgreSQL and Redis:
 ```sh
 docker-compose up -d
 ```
 
-## Building & Running
-
-### Using Maven:
-
+### Build & Run the Application
 ```sh
 mvn clean install
-mvn spring-boot:run -Dspring-boot.run.profiles=local
+mvn spring-boot:run
 ```
 
-### IntelliJ IDEA Setup
-
-- Open `Run -> Edit Configurations`
-- Add `local` in the "Active profiles" field or VM options:
-
-```sh
--Dspring.profiles.active=local
+### API Documentation (Swagger)
+Once the application is running, visit:
+```
+http://localhost:8080/swagger-ui/index.html
 ```
 
-## Monitoring and Health Checks
+## API Endpoints
 
-Check application health at:
+### Authentication APIs
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| POST   | /api/auth/register | Register a new user |
+| POST   | /api/auth/login | Login and receive JWT token |
+| POST   | /api/auth/logout | Logout user |
 
-```sh
-GET /api/health
-```
+### Account Management APIs
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| POST   | /api/account/create | Teller creates a new bank account |
+| GET    | /api/account/me | Customer retrieves their account details |
 
-Response:
+### Transaction APIs
+| Method | Endpoint | Description |
+|--------|---------|-------------|
+| POST   | /api/transaction/deposit | Teller deposits money |
+| POST   | /api/transaction/transfer | Customer transfers money |
+| POST   | /api/transaction/verify-transfer | Verify transfer before execution |
+| POST   | /api/transaction/statement | Get bank statement for a given month |
 
-```json
-{
-  "application": "spring-boot-core-bank",
-  "version": "1.0.0",
-  "database": "UP",
-  "redis": "UP",
-  "status": "UP"
-}
-```
+## Environment Variables
 
-### Testing
-Run unit tests:
-```bash
-mvn clean test
-```
+| Variable Name | Description |
+|--------------|-------------|
+| SPRING_DATASOURCE_URL | PostgreSQL database URL |
+| SPRING_DATASOURCE_USERNAME | PostgreSQL username |
+| SPRING_DATASOURCE_PASSWORD | PostgreSQL password |
+| KONG_ADMIN_URL (not implemented yet) | Kong API Gateway Admin URL |
+| KEYCLOAK_URL (not implemented yet) | Keycloak Authentication Server URL |
+| KAFKA_BROKER_URL (not implemented yet) | Kafka broker URL |
+| REDIS_HOST | Redis server hostname |
 
-### CI/CD
-CI/CD configured via GitHub Actions includes automated testing and SonarQube scanning.
+## Monitoring & Logging
 
-### SonarQube Configuration
-Properties in `pom.xml`:
-```xml
-<properties>
-  <sonar.projectKey>jirawatp_spring-boot-core-bank</sonar.projectKey>
-  <sonar.host.url>https://sonarcloud.io</sonar.host.url>
-</properties>
+- (Future planned integrations with Datadog & OpenSearch)
+- (Logs may be stored in AWS S3 in the future)
 
-## Swagger API Docs
+## Future Enhancements
+- Implement GraphQL API for more efficient data retrieval
+- Add Two-Factor Authentication (2FA)
+- Improve Fraud Detection using machine learning
+- Implement Automated KYC Verification for new customers
+- Fully integrate Kafka, Kong API Gateway, and Keycloak
+- Implement Service Tracing for better observability of requests across microservices
+- Introduce Service Breaker (Circuit Breaker) to handle system failures gracefully
 
-Visit [Swagger UI](http://localhost:8080/swagger-ui.html)
-
-### Deployment
-On merging PRs to `main`, a Docker image is built and published to GitHub Container Registry (GHCR).
+## Contributors
+- Jirawat Pattanayutanachot (Owner)
 
 ## License
-No license.
+This project is No License.
+
+## Contact
+For any questions, feel free to contact:
+- GitHub: [jirawatp](https://github.com/jirawatp)

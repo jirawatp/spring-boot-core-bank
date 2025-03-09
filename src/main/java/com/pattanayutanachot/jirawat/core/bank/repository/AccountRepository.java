@@ -1,14 +1,15 @@
 package com.pattanayutanachot.jirawat.core.bank.repository;
 
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
+import com.pattanayutanachot.jirawat.core.bank.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
 
 import java.util.Optional;
+import java.util.List;
 
-@Repository
 public interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByAccountNumber(String accountNumber);
-    Optional<Account> findByCitizenId(String citizenId);
-    Optional<Account> findByEmail(String email);
+    boolean existsByAccountNumber(String accountNumber);
+    List<Account> findByUserId(Long userId);
+    Optional<Account> findByUser(User user);
 }

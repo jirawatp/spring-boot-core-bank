@@ -1,48 +1,53 @@
 package com.pattanayutanachot.jirawat.core.bank.controller;
 
-import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
+import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
+import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import com.pattanayutanachot.jirawat.core.bank.service.TransactionService;
+import com.pattanayutanachot.jirawat.core.bank.model.User;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/transactions")
+@RequestMapping("/api/transaction")
+@RequiredArgsConstructor
+@SecurityRequirement(name = "bearerAuth") // Requires authentication
 public class TransactionController {
 
     private final TransactionService transactionService;
+    private final UserRepository userRepository;
 
-    public TransactionController(TransactionService transactionService) {
-        this.transactionService = transactionService;
-    }
-
-    @GetMapping
-    public ResponseEntity<List<Transaction>> getAllTransactions() {
+    /**
+     * Retrieve all transactions (Only for TELLERS).
+     */
+    @GetMapping("/transactions")
+    @PreAuthorize("hasAuthority('ROLE_TELLER')")
+    public ResponseEntity<List<TransactionResponse>> getAllTransactions() {
         return ResponseEntity.ok(transactionService.getAllTransactions());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<Transaction> getTransactionById(@PathVariable Long id) {
-        return ResponseEntity.ok(transactionService.getTransactionById(id));
-    }
+    /**
+     * Retrieve bank statement for a specific month (Only for CUSTOMERS).
+     */
+    @PostMapping("/statement")
+    @PreAuthorize("hasAuthority('ROLE_CUSTOMER')") // Only customers can access
+    public ResponseEntity<List<BankStatementResponse>> getBankStatement(
+            @AuthenticationPrincipal UserDetails customerDetails,
+            @Valid @RequestBody BankStatementRequest request) {
 
-    @PostMapping("/deposit")
-    public ResponseEntity<Transaction> deposit(@Valid @RequestBody Transaction transaction) {
-        return ResponseEntity.ok(transactionService.deposit(transaction));
-    }
+        User customer = userRepository.findByEmail(customerDetails.getUsername())
+                .orElseThrow(() -> new RuntimeException("Customer not found."));
 
-    @PostMapping("/withdraw")
-    public ResponseEntity<Transaction> withdraw(@Valid @RequestBody Transaction transaction) {
-        return ResponseEntity.ok(transactionService.withdraw(transaction));
-    }
-
-    @PostMapping("/transfer")
-    public ResponseEntity<Transaction> transfer(@RequestParam Long fromAccountId,
-                                                @RequestParam Long toAccountId,
-                                                @RequestParam BigDecimal amount) {
-        return ResponseEntity.ok(transactionService.transfer(fromAccountId, toAccountId, amount));
+        return ResponseEntity.ok(transactionService.getBankStatement(customer.getId(), request));
     }
 }
