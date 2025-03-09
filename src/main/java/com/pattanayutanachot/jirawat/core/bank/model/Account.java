@@ -34,5 +34,13 @@ public class Account {
     private User createdByTeller; // Teller who created the account
 
     @Column(nullable = false, updatable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private LocalDateTime createdAt;
+
+    /**
+     * Automatically set created_at before inserting into the database.
+     */
+    @PrePersist
+    protected void onCreate() {
+        this.createdAt = LocalDateTime.now();
+    }
 }
