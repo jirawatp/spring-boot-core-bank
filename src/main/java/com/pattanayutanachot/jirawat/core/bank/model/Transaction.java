@@ -12,7 +12,7 @@ import java.time.LocalDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder // ✅ Add this annotation to enable builder()
+@Builder
 public class Transaction {
 
     @Id
@@ -29,6 +29,16 @@ public class Transaction {
 
     @Column(nullable = false)
     private BigDecimal amount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private TransactionChannel channel;
+
+    @Column(nullable = true)
+    private String remark;
+
+    @Column(nullable = false)
+    private BigDecimal balanceAfter;
 
     @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;

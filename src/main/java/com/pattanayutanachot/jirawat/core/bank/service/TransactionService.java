@@ -1,5 +1,7 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementRequest;
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
@@ -18,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -51,36 +54,54 @@ public class TransactionService {
      * Retrieves a customer's bank statement for a specific month.
      */
     @Transactional(readOnly = true)
-    public List<TransactionResponse> getBankStatement(Long customerId, int year, int month, String pin) {
-        // Find customer accounts
-        List<Account> accounts = accountRepository.findByUserId(customerId);
+    public List<BankStatementResponse> getBankStatement(Long customerId, BankStatementRequest request) {
+        log.info("Fetching bank statement for user [{}], accountNumber [{}] - Month: {} Year: {}", customerId, request.accountNumber(), request.month(), request.year());
 
-        if (accounts.isEmpty()) {
-            throw new RuntimeException("No accounts found for this customer.");
+        Account account = accountRepository.findByAccountNumber(request.accountNumber())
+                .orElseThrow(() -> new UsernameNotFoundException("Account not found."));
+
+        if (!account.getUser().getId().equals(customerId)) {
+            throw new RuntimeException("You can only access your own account.");
         }
 
         // Verify PIN
         User customer = userRepository.findById(customerId)
                 .orElseThrow(() -> new RuntimeException("Customer not found."));
-        if (!customer.getPin().equals(pin)) {
+        if (!customer.getPin().equals(request.pin())) {
             throw new RuntimeException("Invalid PIN.");
         }
 
-        // Fetch transactions for the given month
-        LocalDateTime startOfMonth = LocalDateTime.of(year, month, 1, 0, 0);
-        LocalDateTime endOfMonth = startOfMonth.plusMonths(1).minusSeconds(1);
+        // Collect all transactions for the given month & year
+        List<Transaction> transactions = transactionRepository.findByAccountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                account,
+                LocalDateTime.of(request.year(), request.month(), 1, 0, 0),
+                LocalDateTime.of(request.year(), request.month(), LocalDateTime.now().getDayOfMonth(), 23, 59)
+        );
 
-        List<Transaction> transactions = transactionRepository
-                .findByAccountInAndCreatedAtBetweenOrderByCreatedAtDesc(accounts, startOfMonth, endOfMonth);
+        if (transactions.isEmpty()) {
+            return List.of(); // Return empty list if no transactions found
+        }
 
-        return transactions.stream()
-                .map(tx -> new TransactionResponse(
-                        tx.getId(),
-                        tx.getAccount().getAccountNumber(),
-                        tx.getType().name(),
-                        tx.getAmount(),
-                        tx.getCreatedAt()
-                ))
-                .collect(Collectors.toList());
+        // Generate bank statement response
+        List<BankStatementResponse> bankStatement = new ArrayList<>();
+        BigDecimal currentBalance = BigDecimal.ZERO;
+
+        for (Transaction tx : transactions) {
+            boolean isDeposit = tx.getType() == TransactionType.DEPOSIT;
+
+            bankStatement.add(BankStatementResponse.builder()
+                    .accountNumber(tx.getAccount().getAccountNumber())
+                    .date(tx.getCreatedAt().toLocalDate().toString()) // Format Date
+                    .time(tx.getCreatedAt().toLocalTime().toString()) // Format Time
+                    .code(tx.getType().getCode()) // Transaction Code
+                    .channel(tx.getChannel().name()) // Channel Info
+                    .debit(isDeposit ? null : tx.getAmount()) // Debit if withdrawal
+                    .credit(isDeposit ? tx.getAmount() : null) // Credit if deposit
+                    .balance(tx.getBalanceAfter()) // Updated Balance
+                    .remark(tx.getRemark() != null ? tx.getRemark() : "N/A") // Transaction Description
+                    .build());
+        }
+
+        return bankStatement;
     }
 }
