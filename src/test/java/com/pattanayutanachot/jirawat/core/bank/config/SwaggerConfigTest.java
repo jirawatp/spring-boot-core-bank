@@ -2,15 +2,23 @@ package com.pattanayutanachot.jirawat.core.bank.config;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.test.context.ActiveProfiles;
+import org.springframework.context.annotation.Import;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.web.servlet.MockMvc;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(SwaggerConfig.class)
-@ActiveProfiles("test")
-class SwaggerConfigTest {
+@WebMvcTest
+@Import(SwaggerConfig.class)
+public class SwaggerConfigTest {
+
+    @Autowired
+    private MockMvc mockMvc;
+
     @Test
-    void testOpenAPIBean() {
-        assertNotNull(new SwaggerConfig().openAPI());
+    void testOpenAPIBean() throws Exception {
+        mockMvc.perform(get("/v3/api-docs"))
+                .andExpect(status().isOk());
     }
 }
