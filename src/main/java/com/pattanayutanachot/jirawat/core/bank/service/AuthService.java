@@ -8,6 +8,8 @@ import com.pattanayutanachot.jirawat.core.bank.repository.RoleRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
 import com.pattanayutanachot.jirawat.core.bank.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -15,8 +17,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.Collections;
-import java.util.Optional;
 import java.util.Set;
 
 @Service
@@ -28,6 +30,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
+    private final StringRedisTemplate redisTemplate; // Redis integration
 
     /**
      * Registers a new CUSTOMER user.
@@ -106,7 +109,7 @@ public class AuthService {
     }
 
     /**
-     * Authenticates user and returns JWT.
+     * Authenticates user and returns JWT, storing it in Redis.
      */
     public LoginResponse login(LoginRequest request) {
         authenticationManager.authenticate(
@@ -117,6 +120,27 @@ public class AuthService {
                 .orElseThrow(() -> new RuntimeException("User not found."));
 
         String token = jwtUtil.generateToken(user);
+
+        // Store JWT in Redis with expiration
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+        ops.set("jwt:" + user.getId(), token, Duration.ofHours(2));
+
         return new LoginResponse(token, user.getEmail());
+    }
+
+    /**
+     * Logs out user by removing JWT from Redis.
+     */
+    public void logout(Long userId) {
+        redisTemplate.delete("jwt:" + userId);
+    }
+
+    /**
+     * Validates JWT by checking Redis.
+     */
+    public boolean isJwtValid(Long userId, String token) {
+        ValueOperations<String, String> ops = redisTemplate.opsForValue();
+        String storedToken = ops.get("jwt:" + userId);
+        return token.equals(storedToken);
     }
 }
