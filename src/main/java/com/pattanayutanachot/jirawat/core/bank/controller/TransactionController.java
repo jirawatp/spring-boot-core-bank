@@ -1,5 +1,6 @@
 package com.pattanayutanachot.jirawat.core.bank.controller;
 
+import com.pattanayutanachot.jirawat.core.bank.dto.BankStatementResponse;
 import com.pattanayutanachot.jirawat.core.bank.dto.DepositRequest;
 import com.pattanayutanachot.jirawat.core.bank.dto.TransactionResponse;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
@@ -39,15 +40,16 @@ public class TransactionController {
      */
     @GetMapping("/statement")
     @PreAuthorize("hasAuthority('ROLE_CUSTOMER')") // Only customers can access
-    public ResponseEntity<List<TransactionResponse>> getBankStatement(
+    public ResponseEntity<List<BankStatementResponse>> getBankStatement(
             @AuthenticationPrincipal UserDetails customerDetails,
             @RequestParam int year,
             @RequestParam int month,
-            @RequestParam String pin) {
+            @RequestParam String pin,
+            @RequestParam String accountNumber) {
 
         User customer = userRepository.findByEmail(customerDetails.getUsername())
                 .orElseThrow(() -> new RuntimeException("Customer not found."));
 
-        return ResponseEntity.ok(transactionService.getBankStatement(customer.getId(), year, month, pin));
+        return ResponseEntity.ok(transactionService.getBankStatement(customer.getId(), year, month, pin, accountNumber));
     }
 }

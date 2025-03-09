@@ -1,0 +1,3 @@
+ALTER TABLE transactions ADD COLUMN channel VARCHAR(50) NOT NULL;
+ALTER TABLE transactions ADD COLUMN remark TEXT NOT NULL;
+ALTER TABLE transactions ADD COLUMN balance_after DECIMAL(15,2) NOT NULL DEFAULT 0;

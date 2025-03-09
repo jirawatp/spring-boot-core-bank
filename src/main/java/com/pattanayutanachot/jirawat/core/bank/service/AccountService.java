@@ -1,10 +1,7 @@
 package com.pattanayutanachot.jirawat.core.bank.service;
 
 import com.pattanayutanachot.jirawat.core.bank.dto.*;
-import com.pattanayutanachot.jirawat.core.bank.model.Account;
-import com.pattanayutanachot.jirawat.core.bank.model.Transaction;
-import com.pattanayutanachot.jirawat.core.bank.model.TransactionType;
-import com.pattanayutanachot.jirawat.core.bank.model.User;
+import com.pattanayutanachot.jirawat.core.bank.model.*;
 import com.pattanayutanachot.jirawat.core.bank.repository.AccountRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.TransactionRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
@@ -78,10 +75,15 @@ public class AccountService {
 
         // Log the Transaction If Initial Deposit Exists
         if (initialDeposit.compareTo(BigDecimal.ZERO) > 0) {
+            String remark = "Deposit Terminal " + tellerId + "****";
+
             Transaction depositTransaction = Transaction.builder()
                     .account(account)
                     .type(TransactionType.DEPOSIT)
                     .amount(initialDeposit)
+                    .channel(TransactionChannel.OTC)
+                    .remark(remark)
+                    .balanceAfter(initialDeposit)
                     .build();
             transactionRepository.save(depositTransaction);
         }
@@ -105,13 +107,20 @@ public class AccountService {
         Account account = accountRepository.findByAccountNumber(request.accountNumber())
                 .orElseThrow(() -> new IllegalArgumentException("Account not found."));
 
-        account.setBalance(account.getBalance().add(request.amount()));
+        BigDecimal newBalance = account.getBalance().add(request.amount());
+
+        account.setBalance(newBalance);
         accountRepository.save(account);
+
+        String remark = "Deposit Terminal " + tellerId + "****";
 
         Transaction depositTransaction = Transaction.builder()
                 .account(account)
                 .type(TransactionType.DEPOSIT)
                 .amount(request.amount())
+                .channel(TransactionChannel.OTC)
+                .remark(remark)
+                .balanceAfter(newBalance)
                 .build();
         transactionRepository.save(depositTransaction);
 
@@ -169,20 +178,31 @@ public class AccountService {
         }
 
         // Deduct from sender
-        senderAccount.setBalance(senderAccount.getBalance().subtract(request.amount()));
+        BigDecimal senderNewBalance = senderAccount.getBalance().subtract(request.amount());
+        senderAccount.setBalance(senderNewBalance);
         accountRepository.save(senderAccount);
 
         // Credit recipient
-        recipientAccount.setBalance(recipientAccount.getBalance().add(request.amount()));
+        BigDecimal recipientNewBalance = recipientAccount.getBalance().add(request.amount());
+        recipientAccount.setBalance(recipientNewBalance);
         accountRepository.save(recipientAccount);
 
         LocalDateTime createdAt = LocalDateTime.now();
+
+        String senderLast4 = senderAccount.getAccountNumber().substring(senderAccount.getAccountNumber().length() - 4);
+        String recipientLast4 = recipientAccount.getAccountNumber().substring(recipientAccount.getAccountNumber().length() - 4);
+
+        String receiveRemark = "Receive from x" + senderLast4 + " " + senderAccount.getUser().getEnglishName();
+        String transferRemark = "Transfer to x" + recipientLast4 + " " + recipientAccount.getUser().getEnglishName();
 
         // Log the transaction for both sender and recipient
         Transaction depositTransaction = Transaction.builder()
                 .account(recipientAccount)
                 .type(TransactionType.DEPOSIT)
                 .amount(request.amount())
+                .channel(TransactionChannel.ATS)
+                .remark(receiveRemark)
+                .balanceAfter(recipientNewBalance)
                 .createdAt(createdAt)
                 .build();
         transactionRepository.save(depositTransaction);
@@ -191,6 +211,9 @@ public class AccountService {
                 .account(senderAccount)
                 .type(TransactionType.WITHDRAWAL)
                 .amount(request.amount())
+                .channel(TransactionChannel.ATS)
+                .remark(transferRemark)
+                .balanceAfter(senderNewBalance)
                 .createdAt(createdAt)
                 .build();
         transactionRepository.save(withdrawalTransaction);
