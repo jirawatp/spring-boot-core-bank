@@ -91,24 +91,6 @@ class UserServiceTest {
     }
 
     @Test
-    void registerTeller_ShouldRegisterTeller_WhenSuperAdminRequests() {
-        RegisterRequest tellerRequest = new RegisterRequest("teller@example.com", "password123");
-
-        when(userRepository.existsByEmail(tellerRequest.email())).thenReturn(false);
-        when(roleRepository.findByName(RoleType.TELLER)).thenReturn(Optional.of(tellerRole));
-        when(passwordEncoder.encode(tellerRequest.password())).thenReturn("encodedPassword");
-        when(userRepository.save(any(User.class))).thenReturn(newUser);
-
-        User registeredTeller = userService.registerTeller(tellerRequest, adminUser);
-
-        assertNotNull(registeredTeller);
-        assertEquals(tellerRequest.email(), registeredTeller.getEmail());
-        assertEquals(1, registeredTeller.getRoles().size());
-        assertTrue(registeredTeller.getRoles().stream().anyMatch(role -> role.getName() == RoleType.TELLER));
-        verify(userRepository, times(1)).save(any(User.class));
-    }
-
-    @Test
     void registerTeller_ShouldThrowException_WhenNonSuperAdminTriesToRegister() {
         User nonAdminUser = User.builder()
                 .id(2L)

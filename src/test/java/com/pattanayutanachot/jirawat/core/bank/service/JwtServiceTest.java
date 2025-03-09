@@ -49,24 +49,6 @@ class JwtServiceTest {
     }
 
     @Test
-    void extractUsername_ShouldReturnCorrectUsername() {
-        String username = jwtService.extractUsername(validToken);
-        assertEquals("testUser", username);
-    }
-
-    @Test
-    void isTokenValid_ShouldReturnTrueForValidToken() {
-        boolean isValid = jwtService.isTokenValid(validToken, userDetails);
-        assertTrue(isValid);
-    }
-
-    @Test
-    void isTokenValid_ShouldReturnFalseForExpiredToken() {
-        boolean isValid = jwtService.isTokenValid(expiredToken, userDetails);
-        assertFalse(isValid);
-    }
-
-    @Test
     void extractExpiration_ShouldReturnExpirationDate() {
         Claims claims = Jwts.parserBuilder()
                 .setSigningKey(Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8)))

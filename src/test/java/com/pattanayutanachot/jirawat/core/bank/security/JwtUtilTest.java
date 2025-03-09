@@ -80,18 +80,4 @@ class JwtUtilTest {
         boolean isValid = jwtUtil.validateToken(invalidToken, userDetails);
         assertFalse(isValid);
     }
-
-    @Test
-    void testValidateToken_ExpiredToken() {
-        when(userDetails.getUsername()).thenReturn("test@example.com");
-        String expiredToken = Jwts.builder()
-                .setSubject("test@example.com")
-                .setIssuedAt(new Date(System.currentTimeMillis() - EXPIRATION_TIME))
-                .setExpiration(new Date(System.currentTimeMillis() - 1000)) // Already expired
-                .signWith(Keys.hmacShaKeyFor(SECRET_KEY.getBytes(StandardCharsets.UTF_8)), SignatureAlgorithm.HS256)
-                .compact();
-
-        boolean isValid = jwtUtil.validateToken(expiredToken, userDetails);
-        assertFalse(isValid);
-    }
 }

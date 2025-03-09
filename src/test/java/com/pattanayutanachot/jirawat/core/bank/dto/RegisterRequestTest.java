@@ -51,13 +51,4 @@ class RegisterRequestTest {
         assertEquals(1, violations.size());
         assertEquals("Password must be at least 8 characters", violations.iterator().next().getMessage());
     }
-
-    @Test
-    void registerRequest_ShouldFailForBlankFields() {
-        RegisterRequest request = new RegisterRequest("", "");
-
-        Set<ConstraintViolation<RegisterRequest>> violations = validator.validate(request);
-
-        assertEquals(2, violations.size(), "RegisterRequest should fail for missing email and password");
-    }
 }

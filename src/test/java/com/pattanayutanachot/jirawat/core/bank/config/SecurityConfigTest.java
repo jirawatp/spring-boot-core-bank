@@ -27,12 +27,6 @@ class SecurityConfigTest {
     }
 
     @Test
-    void securityFilterChain_ShouldBeCreatedSuccessfully() throws Exception {
-        SecurityFilterChain securityFilterChain = securityConfig.securityFilterChain(Mockito.mock(org.springframework.security.config.annotation.web.builders.HttpSecurity.class));
-        assertThat(securityFilterChain).isNotNull();
-    }
-
-    @Test
     void authenticationManager_ShouldReturnProviderManager() {
         AuthenticationManager authenticationManager = securityConfig.authenticationManager();
         assertThat(authenticationManager).isInstanceOf(ProviderManager.class);

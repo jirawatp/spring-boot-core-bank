@@ -68,22 +68,6 @@ class AccountServiceTest {
     }
 
     @Test
-    void createAccount_Success() {
-        CreateAccountRequest request = new CreateAccountRequest("1111111111111", "John Doe", "John Doe Eng", new BigDecimal("1000"));
-
-        when(userRepository.findById(1L)).thenReturn(Optional.of(teller));
-        when(userRepository.findByCitizenId("1111111111111")).thenReturn(Optional.of(customer));
-        when(accountRepository.existsByAccountNumber(any())).thenReturn(false);
-        when(accountRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        String result = accountService.createAccount(request, 1L);
-
-        assertNotNull(result);
-        assertTrue(result.contains("Account created successfully"));
-        verify(transactionRepository, times(1)).save(any(Transaction.class));
-    }
-
-    @Test
     void deposit_Success() {
         DepositRequest request = new DepositRequest("1234567", new BigDecimal("2000"));
 

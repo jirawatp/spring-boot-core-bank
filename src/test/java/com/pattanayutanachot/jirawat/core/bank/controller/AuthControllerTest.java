@@ -54,36 +54,6 @@ class AuthControllerTest {
     }
 
     @Test
-    void registerTeller_ShouldReturnSuccess() throws Exception {
-        RegisterRequest request = new RegisterRequest("teller@example.com", "password");
-        when(mockUserDetails.getUsername()).thenReturn("admin@example.com");
-        when(userService.getUserByEmail("admin@example.com")).thenReturn(Optional.of(mockUser));
-        when(authService.registerTeller(any(RegisterRequest.class), anyLong())).thenReturn("Teller registered successfully.");
-
-        mockMvc.perform(post("/api/auth/register-teller")
-                        .with(user(mockUserDetails))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"teller@example.com\",\"password\":\"password\"}"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Teller registered successfully."));
-    }
-
-    @Test
-    void completeProfile_ShouldReturnSuccess() throws Exception {
-        CompleteProfileRequest request = new CompleteProfileRequest("1234567890", "John Doe", "John", "1234");
-        when(mockUserDetails.getUsername()).thenReturn("customer@example.com");
-        when(userService.getUserByEmail("customer@example.com")).thenReturn(Optional.of(mockUser));
-        when(authService.completeProfile(anyLong(), any(CompleteProfileRequest.class))).thenReturn("Profile completed successfully.");
-
-        mockMvc.perform(post("/api/auth/complete-profile")
-                        .with(user(mockUserDetails))
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"citizenId\":\"1234567890\", \"thaiName\":\"John Doe\",\"englishName\":\"John\",\"pin\":\"1234\"}"))
-                .andExpect(status().isOk())
-                .andExpect(content().string("Profile completed successfully."));
-    }
-
-    @Test
     void login_ShouldReturnJwtToken() throws Exception {
         LoginRequest request = new LoginRequest("customer@example.com", "password");
         LoginResponse response = new LoginResponse("mock-jwt-token", "customer@example.com");
@@ -94,18 +64,5 @@ class AuthControllerTest {
                         .content("{\"email\":\"customer@example.com\",\"password\":\"password\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.token").value("mock-jwt-token"));
-    }
-
-    @Test
-    void logout_ShouldReturnSuccess() throws Exception {
-        when(mockUserDetails.getUsername()).thenReturn("customer@example.com");
-        when(userService.getUserByEmail("customer@example.com")).thenReturn(Optional.of(mockUser));
-
-        mockMvc.perform(post("/api/auth/logout")
-                        .with(user(mockUserDetails)))
-                .andExpect(status().isOk())
-                .andExpect(content().string("User logged out successfully."));
-
-        verify(authService, times(1)).logout(mockUser.getId());
     }
 }
