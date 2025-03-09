@@ -48,6 +48,9 @@ public class SecurityConfig {
                         .requestMatchers("/api/teller/**").hasAuthority("ROLE_TELLER")
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_SUPER_ADMIN")
 
+                        // Ensure only tellers can see all transactions and deposit
+                        .requestMatchers("/api/account/deposit", "/api/transaction/transactions").hasAuthority("ROLE_TELLER")
+
                         // Ensure only tellers can create accounts
                         .requestMatchers("/api/account/create").hasAuthority("ROLE_TELLER")
 
