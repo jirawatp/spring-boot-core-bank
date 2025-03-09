@@ -1,9 +1,9 @@
 package com.pattanayutanachot.jirawat.core.bank.config;
 
 import org.flywaydb.core.Flyway;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -14,7 +14,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DriverManagerDataSource;
 
 import javax.sql.DataSource;
-
 import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -23,51 +22,56 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class FallbackConfigTest {
 
-    @InjectMocks
     private FallbackConfig fallbackConfig;
 
     @Mock
-    private DataSourceProperties dataSourceProperties;
+    private DataSourceProperties mockDataSourceProperties;
 
     @Mock
-    private FlywayProperties flywayProperties;
+    private FlywayProperties mockFlywayProperties;
+
+    @BeforeEach
+    void setUp() {
+        fallbackConfig = new FallbackConfig();
+    }
 
     @Test
-    void testDataSourceCreation() {
-        // Mock DataSource properties
-        when(dataSourceProperties.getUrl()).thenReturn("jdbc:postgresql://localhost:5432/testdb");
-        when(dataSourceProperties.getUsername()).thenReturn("testuser");
-        when(dataSourceProperties.getPassword()).thenReturn("testpassword");
-        when(dataSourceProperties.getDriverClassName()).thenReturn("org.postgresql.Driver");
+    void testDataSourceCreation_ValidConfig() {
+        when(mockDataSourceProperties.getUrl()).thenReturn("jdbc:postgresql://localhost:5432/testdb");
+        when(mockDataSourceProperties.getUsername()).thenReturn("testuser");
+        when(mockDataSourceProperties.getPassword()).thenReturn("testpass");
+        when(mockDataSourceProperties.getDriverClassName()).thenReturn("org.postgresql.Driver");
 
-        DataSource dataSource = fallbackConfig.dataSource(dataSourceProperties);
+        DataSource dataSource = fallbackConfig.dataSource(mockDataSourceProperties);
         assertNotNull(dataSource);
         assertTrue(dataSource instanceof DriverManagerDataSource);
 
         DriverManagerDataSource ds = (DriverManagerDataSource) dataSource;
         assertEquals("jdbc:postgresql://localhost:5432/testdb", ds.getUrl());
         assertEquals("testuser", ds.getUsername());
+        assertEquals("testpass", ds.getPassword());
+        assertEquals("org.postgresql.Driver", mockDataSourceProperties.getDriverClassName());
     }
 
     @Test
-    void testDataSourceCreationFailsWhenNoUrl() {
-        // Simulate missing URL
-        when(dataSourceProperties.getUrl()).thenReturn(null);
+    void testDataSourceCreation_ThrowsExceptionWhenUrlIsMissing() {
+        when(mockDataSourceProperties.getUrl()).thenReturn(null);
+        when(mockDataSourceProperties.getUsername()).thenReturn("testuser");
+        when(mockDataSourceProperties.getPassword()).thenReturn("testpass");
 
-        IllegalStateException exception = assertThrows(IllegalStateException.class,
-                () -> fallbackConfig.dataSource(dataSourceProperties));
+        IllegalStateException exception = assertThrows(IllegalStateException.class, () -> {
+            fallbackConfig.dataSource(mockDataSourceProperties);
+        });
 
         assertEquals("Database URL (spring.datasource.url or DB_URL) is not set!", exception.getMessage());
     }
 
     @Test
-    void testFlywayCreation() {
-        // Mock Flyway properties
-        when(flywayProperties.getLocations()).thenReturn(Collections.singletonList("classpath:db/migration"));
-
+    void testFlywayBeanCreation() {
         DataSource mockDataSource = mock(DataSource.class);
-        Flyway flyway = fallbackConfig.flyway(mockDataSource, flywayProperties);
+        when(mockFlywayProperties.getLocations()).thenReturn(Collections.singletonList("classpath:db/migration"));
 
+        Flyway flyway = fallbackConfig.flyway(mockDataSource, mockFlywayProperties);
         assertNotNull(flyway);
     }
 

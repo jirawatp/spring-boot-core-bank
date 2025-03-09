@@ -1,116 +1,57 @@
 package com.pattanayutanachot.jirawat.core.bank.model;
 
-import jakarta.validation.ConstraintViolation;
-import jakarta.validation.Validation;
-import jakarta.validation.Validator;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccountTest {
 
-    private static Validator validator;
-
-    @BeforeAll
-    static void setup() {
-        ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
-        validator = factory.getValidator();
-    }
-
     @Test
-    void testValidAccount() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(1000.00),
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Account>> violations = validator.validate(account);
-        assertTrue(violations.isEmpty(), "Expected no validation errors");
-    }
-
-    @Test
-    void testBlankAccountNumber() {
+    void shouldCreateAccountWithDefaultValues() {
         Account account = new Account();
-        account.setAccountNumber("");
-        account.setCitizenId("1234567890123");
-        account.setThaiName("สมชาย ใจดี");
-        account.setEnglishName("Somchai Jaidee");
-        account.setEmail("somchai@example.com");
-        account.setPassword("securePassword");
-        account.setPin("123456");
-        account.setBalance(BigDecimal.valueOf(1000.00));
-        account.setCreatedAt(LocalDateTime.now());
 
-        Set<ConstraintViolation<Account>> violations = validator.validate(account);
-        assertFalse(violations.isEmpty(), "Expected validation error for blank account number");
+        assertNotNull(account);
+        assertNull(account.getId());
+        assertNull(account.getAccountNumber());
+        assertNotNull(account.getBalance());
+        assertEquals(BigDecimal.ZERO, account.getBalance());
+        assertNull(account.getUser());
+        assertNull(account.getCreatedByTeller());
+        assertNull(account.getCreatedAt());
     }
 
     @Test
-    void testInvalidEmailFormat() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "invalid-email", // Invalid email
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(1000.00),
-                LocalDateTime.now()
-        );
+    void shouldCreateAccountWithBuilder() {
+        LocalDateTime createdAt = LocalDateTime.now();
+        User user = new User();
+        User teller = new User();
 
-        Set<ConstraintViolation<Account>> violations = validator.validate(account);
-        assertFalse(violations.isEmpty(), "Expected validation error for invalid email");
+        Account account = Account.builder()
+                .id(1L)
+                .accountNumber("1234567")
+                .balance(BigDecimal.valueOf(500.00))
+                .user(user)
+                .createdByTeller(teller)
+                .createdAt(createdAt)
+                .build();
+
+        assertNotNull(account);
+        assertEquals(1L, account.getId());
+        assertEquals("1234567", account.getAccountNumber());
+        assertEquals(BigDecimal.valueOf(500.00), account.getBalance());
+        assertEquals(user, account.getUser());
+        assertEquals(teller, account.getCreatedByTeller());
+        assertEquals(createdAt, account.getCreatedAt());
     }
 
     @Test
-    void testNegativeBalance() {
-        Account account = new Account(
-                1L,
-                "1234567890",
-                "1234567890123",
-                "สมชาย ใจดี",
-                "Somchai Jaidee",
-                "somchai@example.com",
-                "securePassword",
-                "123456",
-                BigDecimal.valueOf(-50.00), // Negative balance
-                LocalDateTime.now()
-        );
-
-        Set<ConstraintViolation<Account>> violations = validator.validate(account);
-        assertFalse(violations.isEmpty(), "Expected validation error for negative balance");
-    }
-
-    @Test
-    void testBlankPassword() {
+    void shouldSetCreatedAtBeforePersist() {
         Account account = new Account();
-        account.setAccountNumber("1234567890");
-        account.setCitizenId("1234567890123");
-        account.setThaiName("สมชาย ใจดี");
-        account.setEnglishName("Somchai Jaidee");
-        account.setEmail("somchai@example.com");
-        account.setPassword(""); // Blank password
-        account.setPin("123456");
-        account.setBalance(BigDecimal.valueOf(1000.00));
-        account.setCreatedAt(LocalDateTime.now());
+        account.onCreate();
 
-        Set<ConstraintViolation<Account>> violations = validator.validate(account);
-        assertFalse(violations.isEmpty(), "Expected validation error for blank password");
+        assertNotNull(account.getCreatedAt());
     }
 }

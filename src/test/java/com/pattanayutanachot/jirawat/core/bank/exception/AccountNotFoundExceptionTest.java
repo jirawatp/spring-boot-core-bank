@@ -1,22 +1,27 @@
 package com.pattanayutanachot.jirawat.core.bank.exception;
 
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 class AccountNotFoundExceptionTest {
 
     @Test
-    void testExceptionMessage() {
-        String errorMessage = "Account not found with ID 123";
+    void shouldCreateExceptionWithMessage() {
+        String errorMessage = "Account not found with ID 12345";
         AccountNotFoundException exception = new AccountNotFoundException(errorMessage);
 
+        assertNotNull(exception);
         assertEquals(errorMessage, exception.getMessage());
     }
 
     @Test
-    void testExceptionType() {
-        AccountNotFoundException exception = new AccountNotFoundException("Test message");
-
-        assertTrue(exception instanceof RuntimeException);
+    void shouldThrowAndCatchException() {
+        String errorMessage = "Account not found";
+        try {
+            throw new AccountNotFoundException(errorMessage);
+        } catch (AccountNotFoundException ex) {
+            assertEquals(errorMessage, ex.getMessage());
+        }
     }
 }

@@ -18,7 +18,7 @@ public class SwaggerConfig {
                         .title("Core Bank API")
                         .version("1.0")
                         .description("API documentation for Core Banking System"))
-                // 🔹 Add global security requirement (JWT Token)
+                // Add global security requirement (JWT Token)
                 .addSecurityItem(new SecurityRequirement().addList("bearerAuth"))
                 .components(new Components()
                         .addSecuritySchemes("bearerAuth",
