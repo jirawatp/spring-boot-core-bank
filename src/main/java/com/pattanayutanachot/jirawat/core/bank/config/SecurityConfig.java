@@ -34,13 +34,27 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll() // Public endpoints
-                        .requestMatchers("/api/auth/register-teller").hasAuthority("ROLE_SUPER_ADMIN") // Only Super Admin can register tellers
-                        .requestMatchers("/api/auth/complete-profile", "/api/auth/logout").authenticated() // Requires authentication
-                        .requestMatchers("/api/customer/**").hasAuthority("ROLE_CUSTOMER") // Secured routes
+                        // Public authentication endpoints
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+
+                        // Restricted admin actions
+                        .requestMatchers("/api/auth/register-teller").hasAuthority("ROLE_SUPER_ADMIN")
+
+                        // Authenticated user actions
+                        .requestMatchers("/api/auth/complete-profile", "/api/auth/logout").authenticated()
+
+                        // Role-based access control for different users
+                        .requestMatchers("/api/customer/**").hasAuthority("ROLE_CUSTOMER")
                         .requestMatchers("/api/teller/**").hasAuthority("ROLE_TELLER")
                         .requestMatchers("/api/admin/**").hasAuthority("ROLE_SUPER_ADMIN")
-                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll() // Allow Swagger access
+
+                        // Ensure only tellers can create accounts
+                        .requestMatchers("/api/account/create").hasAuthority("ROLE_TELLER")
+
+                        // Swagger access (OPTIONAL: Restrict this to development mode)
+                        .requestMatchers("/swagger-ui/**", "/v3/api-docs/**", "/swagger-resources/**").permitAll()
+
+                        // Ensure all other endpoints require authentication
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
