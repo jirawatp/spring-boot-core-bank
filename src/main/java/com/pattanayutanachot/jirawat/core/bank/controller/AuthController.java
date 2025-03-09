@@ -17,11 +17,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 @RequiredArgsConstructor
-@SecurityRequirement(name = "bearerAuth") // Requires authentication
 public class AuthController {
 
     private final AuthService authService;
-    private final UserService userService; // ✅ Use UserService to fetch full User entity
+    private final UserService userService;
 
     /**
      * Register a new CUSTOMER user.
