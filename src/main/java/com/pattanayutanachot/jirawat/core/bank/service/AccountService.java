@@ -2,6 +2,7 @@ package com.pattanayutanachot.jirawat.core.bank.service;
 
 import com.pattanayutanachot.jirawat.core.bank.dto.CreateAccountRequest;
 import com.pattanayutanachot.jirawat.core.bank.model.Account;
+import com.pattanayutanachot.jirawat.core.bank.model.RoleType;
 import com.pattanayutanachot.jirawat.core.bank.model.User;
 import com.pattanayutanachot.jirawat.core.bank.repository.AccountRepository;
 import com.pattanayutanachot.jirawat.core.bank.repository.UserRepository;
@@ -26,27 +27,20 @@ public class AccountService {
     /**
      * Creates a new bank account for a user.
      * Only a TELLER can create an account for a CUSTOMER or PERSON.
-     *
-     * @param request   the request containing user details
-     * @param tellerId  the ID of the teller creating the account
-     * @return a success message with the generated account number
      */
     @Transactional
     public String createAccount(CreateAccountRequest request, Long tellerId) {
         log.info("Teller [{}] is creating an account for Citizen ID: {}", tellerId, request.citizenId());
 
-        // Find the user by Citizen ID
         User user = userRepository.findByCitizenId(request.citizenId())
-                .orElseThrow(() -> new UsernameNotFoundException("User with Citizen ID not found."));
+                .filter(u -> u.getRoles().stream().anyMatch(role -> role.getName() == RoleType.CUSTOMER))
+                .orElseThrow(() -> new RuntimeException("No CUSTOMER user found with this Citizen ID."));
 
-        // Ensure Teller exists
         User teller = userRepository.findById(tellerId)
                 .orElseThrow(() -> new UsernameNotFoundException("Teller not found."));
 
-        // Generate a unique 7-digit account number
         String accountNumber = generateUniqueAccountNumber();
 
-        // Ensure initial deposit is non-negative
         BigDecimal initialDeposit = request.initialDeposit() != null ? request.initialDeposit() : BigDecimal.ZERO;
 
         Account account = Account.builder()
@@ -64,15 +58,12 @@ public class AccountService {
 
     /**
      * Generates a unique 7-digit account number.
-     * Ensures uniqueness before returning a valid account number.
-     *
-     * @return a unique 7-digit account number
      */
     private String generateUniqueAccountNumber() {
         String accountNumber;
         do {
-            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000)); // Generate 7-digit number
-        } while (accountRepository.existsByAccountNumber(accountNumber)); // Ensure uniqueness
+            accountNumber = String.format("%07d", RANDOM.nextInt(10_000_000));
+        } while (accountRepository.existsByAccountNumber(accountNumber));
 
         return accountNumber;
     }

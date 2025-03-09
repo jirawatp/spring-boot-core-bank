@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.Collections;
-import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -30,10 +29,11 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtUtil jwtUtil;
-    private final StringRedisTemplate redisTemplate; // Redis integration
+    private final StringRedisTemplate redisTemplate;
 
     /**
-     * Registers a new CUSTOMER user.
+     * Registers a new CUSTOMER user without requiring citizenId.
+     * CitizenId will be provided in the `completeProfile` step.
      */
     @Transactional
     public String register(RegisterRequest request) {
@@ -51,7 +51,7 @@ public class AuthService {
                 .build();
 
         userRepository.save(user);
-        return "User registered successfully as CUSTOMER.";
+        return "User registered successfully as CUSTOMER. Please complete your profile.";
     }
 
     /**
@@ -94,9 +94,17 @@ public class AuthService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new UsernameNotFoundException("User not found."));
 
-        // Reject if profile is already completed
         if (user.getCitizenId() != null && user.getThaiName() != null && user.getEnglishName() != null) {
             throw new RuntimeException("Profile already completed.");
+        }
+
+        // Ensure that Citizen ID is unique only for CUSTOMER role
+        boolean citizenIdExistsForCustomer = userRepository.findByCitizenId(request.citizenId())
+                .filter(existingUser -> existingUser.getRoles().stream().anyMatch(role -> role.getName() == RoleType.CUSTOMER))
+                .isPresent();
+
+        if (citizenIdExistsForCustomer) {
+            throw new RuntimeException("Citizen ID is already registered for a CUSTOMER.");
         }
 
         user.setCitizenId(request.citizenId());
@@ -109,7 +117,7 @@ public class AuthService {
     }
 
     /**
-     * Authenticates user and returns JWT, storing it in Redis.
+     * Authenticates user, returns JWT, and stores it in Redis.
      */
     public LoginResponse login(LoginRequest request) {
         authenticationManager.authenticate(
@@ -121,7 +129,6 @@ public class AuthService {
 
         String token = jwtUtil.generateToken(user);
 
-        // Store JWT in Redis with expiration
         ValueOperations<String, String> ops = redisTemplate.opsForValue();
         ops.set("jwt:" + user.getId(), token, Duration.ofHours(2));
 
@@ -133,14 +140,5 @@ public class AuthService {
      */
     public void logout(Long userId) {
         redisTemplate.delete("jwt:" + userId);
-    }
-
-    /**
-     * Validates JWT by checking Redis.
-     */
-    public boolean isJwtValid(Long userId, String token) {
-        ValueOperations<String, String> ops = redisTemplate.opsForValue();
-        String storedToken = ops.get("jwt:" + userId);
-        return token.equals(storedToken);
     }
 }
